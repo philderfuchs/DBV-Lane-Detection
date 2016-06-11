@@ -1,6 +1,7 @@
 package laneDetection;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -12,7 +13,7 @@ import ij.process.ImageProcessor;
 
 public class Detect_Lanes implements PlugInFilter {
 
-	class Pixel {
+	class Pixel implements Comparable<Pixel> {
 		int x;
 		int y;
 
@@ -20,11 +21,21 @@ public class Detect_Lanes implements PlugInFilter {
 			this.x = x;
 			this.y = y;
 		}
+
+		public int compareTo(Pixel o) {
+			if (this.y < o.y) {
+				return -1;
+			} else if (this.y == o.y) {
+				return this.x < o.x ? -1 : 1;
+			} else {
+				return 1;
+			}
+		}
 	}
 
 	class Region {
 		ArrayList<Pixel> pixels = new ArrayList<Pixel>();
-		int number;
+		int id;
 	}
 
 	public int setup(String arg, ImagePlus imp) {
@@ -33,8 +44,11 @@ public class Detect_Lanes implements PlugInFilter {
 
 	public void run(ImageProcessor ip) {
 		ByteProcessor byteImageProcessor = (ByteProcessor) ip.convertToByte(true);
-
-		Roi roi = new Roi(0, ip.getHeight() / 2, ip.getWidth() - 1, ip.getHeight() / 2 - 1);
+		
+		int roiOffsetX = 0;
+		int roiOffsetY = ip.getHeight() / 2;
+		
+		Roi roi = new Roi(0, roiOffsetY, ip.getWidth() - roiOffsetX - 1, roiOffsetY - 1);
 		byteImageProcessor.setRoi(roi);
 
 		ImagePlus grayscaleImage = new ImagePlus("Grayscale", byteImageProcessor.crop());
@@ -43,21 +57,58 @@ public class Detect_Lanes implements PlugInFilter {
 		IJ.run("Canny Edge Detector", "Low threshold=[1.0] High threshold=[3.0] Normalize contrast=[true]");
 		byteImageProcessor = (ByteProcessor) grayscaleImage.getProcessor();
 		byteImageProcessor.dilate();
-		new ImagePlus("Dilated Edges", byteImageProcessor).show();
-
+		byteImageProcessor.dilate();
+		
+		// new ImagePlus("Dilated Edges", byteImageProcessor).show();
+		
+		roiOffsetX += 12;
+		roiOffsetY += 12;
 		roi = new Roi(12, 12, byteImageProcessor.getWidth() - 24, byteImageProcessor.getHeight() - 24);
 		byteImageProcessor.setRoi(roi);
 		ByteProcessor cropped = (ByteProcessor) byteImageProcessor.crop();
-		new ImagePlus("Dilated Edges Cropped", cropped).show();
+		new ImagePlus("Dilated Edges Cropped", cropped);//.show();
 
-		Region region = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5);
-		ImagePlus plus = NewImage.createByteImage("Filled Region", cropped.getWidth(), cropped.getHeight(), 1,
+		Region street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5);
+		ImagePlus streetPlus = NewImage.createByteImage("Filled Region", cropped.getWidth(), cropped.getHeight(), 1,
 				NewImage.FILL_WHITE);
-		ByteProcessor filledRegionByteProcessor = (ByteProcessor) plus.getProcessor();
-		for (Pixel p : region.pixels) {
-			filledRegionByteProcessor.set(p.x, p.y, 0);
+		ByteProcessor streetProcessor = (ByteProcessor) streetPlus.getProcessor();
+		for (Pixel p : street.pixels) {
+			streetProcessor.set(p.x, p.y, 0);
+
 		}
-		plus.show();
+		streetPlus.show();
+
+		ArrayList<Region> lanes = new ArrayList<Region>();
+		Region leftLane = new Region();
+		Region rightLane = new Region();
+
+		// Find left and right lanes
+		Collections.sort(street.pixels);
+		int currentY = 0;
+		Pixel lastPixel = null;
+		for (Pixel p : street.pixels) {
+			if (p.y != currentY) {
+				currentY = p.y;
+				if(p.x != 0) leftLane.pixels.add(p);
+				if (lastPixel != null && lastPixel.x != streetProcessor.getWidth() - 1) {
+					rightLane.pixels.add(lastPixel);
+				}
+			}
+
+			lastPixel = p;
+		}
+
+		for (Pixel p : leftLane.pixels) {
+			for (int i = -10; i <= 0; i++)
+				ip.set(p.x + roiOffsetX + i, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((0 & 0xff) << 8) + (0 & 0xff));
+
+		}
+
+		for (Pixel p : rightLane.pixels) {
+			for (int i = 0; i <= 10; i++)
+				ip.set(p.x + roiOffsetX + i, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
+		}
+
 	}
 
 	/****************************************************************
@@ -81,13 +132,13 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 		return region;
 	}
-	
+
 	private void queueExpandPixel(int x, int y) {
 		ArrayList<Pixel> queue = new ArrayList<Pixel>();
 		queue.add(new Pixel(x, y));
-		while(queue.size() > 0) {
+		while (queue.size() > 0) {
 			Pixel p = queue.get(0);
-			if(contourImage.get(p.x, p.y) == 255) {
+			if (contourImage.get(p.x, p.y) == 255) {
 				queue.remove(0);
 				continue;
 			}
@@ -109,23 +160,23 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 	}
 
-//	private void recExpandPixels(int x, int y) {
-//		if (contourImage.get(x, y) == 255)
-//			return;
-//		tempPixelList.add(new Pixel(x, y));
-//		contourImage.set(x, y, 255);
-//		if (y - 1 >= 0) {
-//			recExpandPixels(x, y - 1);
-//		}
-//		if (y + 1 < contourImage.getHeight()) {
-//			recExpandPixels(x, y + 1);
-//		}
-//		if (x - 1 >= 0) {
-//			recExpandPixels(x - 1, y);
-//		}
-//		if (x + 1 < contourImage.getWidth()) {
-//			recExpandPixels(x + 1, y);
-//		}
-//	}
+	// private void recExpandPixels(int x, int y) {
+	// if (contourImage.get(x, y) == 255)
+	// return;
+	// tempPixelList.add(new Pixel(x, y));
+	// contourImage.set(x, y, 255);
+	// if (y - 1 >= 0) {
+	// recExpandPixels(x, y - 1);
+	// }
+	// if (y + 1 < contourImage.getHeight()) {
+	// recExpandPixels(x, y + 1);
+	// }
+	// if (x - 1 >= 0) {
+	// recExpandPixels(x - 1, y);
+	// }
+	// if (x + 1 < contourImage.getWidth()) {
+	// recExpandPixels(x + 1, y);
+	// }
+	// }
 
 }
