@@ -1,5 +1,6 @@
 package laneDetection;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -36,9 +37,20 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 	}
 
-	class Region {
+	class Region implements Comparable<Region> {
 		ArrayList<Pixel> pixels = new ArrayList<Pixel>();
 		int id;
+
+		// only works with sorted pixel lists
+		public int compareTo(Region o) {
+			if (this.pixels.get(0).y < o.pixels.get(0).y) {
+				return -1;
+			} else if (this.pixels.get(0).y == o.pixels.get(0).y) {
+				return 0;
+			} else {
+				return 1;
+			}
+		}
 	}
 
 	public int setup(String arg, ImagePlus imp) {
@@ -72,6 +84,11 @@ public class Detect_Lanes implements PlugInFilter {
 		new ImagePlus("Dilated Edges Cropped", cropped);// .show();
 
 		Region street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0);
+		if( street.pixels.size() == 0) {
+			// Filling of street failed.
+			// Starting Backup Plan
+			street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0);
+		}
 		ImagePlus streetPlus = NewImage.createByteImage("Filled Region", cropped.getWidth(), cropped.getHeight(), 1,
 				NewImage.FILL_WHITE);
 		ByteProcessor streetProcessor = (ByteProcessor) streetPlus.getProcessor();
@@ -86,24 +103,79 @@ public class Detect_Lanes implements PlugInFilter {
 		extractOuterLanes(street, streetProcessor, leftLane, rightLane);
 		drawLanes(ip, roiOffsetX, roiOffsetY, leftLane, rightLane);
 
-		// get left regions
+		// get other regions
+		// regions come sorted from upper to lower positions of their respective
+		// top pixel
 		ArrayList<Region> regions = collectAndFilterOtherRegions(streetProcessor);
 
+		// int rankOfRegion = 0;
 		for (Region r : regions) {
+			// ip.drawString(String.valueOf(rankOfRegion++), r.pixels.get(0).x +
+			// roiOffsetX,
+			// r.pixels.get(0).y + roiOffsetY);
 			for (Pixel p : r.pixels) {
 				ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
 			}
 		}
 
+		ArrayList<ArrayList<Region>> dashedLines = new ArrayList<ArrayList<Region>>();
+
+		if (regions.size() > 0) {
+			dashedLines.add(new ArrayList<Region>());
+			dashedLines.get(dashedLines.size() - 1).add(regions.get(0));
+			Region dash = regions.get(0);
+			Region nextDash = null;
+
+			// find next region
+			while (regions.size() > 1) {
+				double minDistance = Double.MAX_VALUE;
+				regions.remove(dash);
+				for (int i = 0; i < regions.size(); i++) {
+					double currentDistance = this.distance(dash.pixels.get(dash.pixels.size() - 1),
+							regions.get(i).pixels.get(0));
+					if (currentDistance < minDistance) {
+						minDistance = currentDistance;
+						nextDash = regions.get(i);
+					}
+				}
+				if (dash.pixels.get(dash.pixels.size() - 1).y - nextDash.pixels.get(0).y > 0) {
+					// next line is positioned over current line
+					// start of next lane
+					dashedLines.add(new ArrayList<Region>());
+					// start over from top
+					nextDash = regions.get(0);
+				}
+				dashedLines.get(dashedLines.size() - 1).add(nextDash);
+				dash = nextDash;
+			}
+
+			int rankOfRegion = 0;
+			for (ArrayList<Region> dashedLine : dashedLines) {
+				for (Region r : dashedLine) {
+					ip.drawString(String.valueOf(rankOfRegion++), r.pixels.get(0).x + roiOffsetX,
+							r.pixels.get(0).y + roiOffsetY);
+					for (Pixel p : r.pixels) {
+						ip.set(p.x + roiOffsetX, p.y + roiOffsetY,
+								((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
+					}
+				}
+			}
+
+		}
+
+	}
+
+	private double distance(Pixel p1, Pixel p2) {
+		return Math.sqrt(Math.pow((((double) p1.x - p2.x)), 2) + Math.pow((((double) p1.y - p2.y)), 2));
 	}
 
 	private ArrayList<Region> collectAndFilterOtherRegions(ByteProcessor streetProcessor) {
 		ArrayList<Region> regions = new ArrayList<Region>();
 		int regionId = 0;
-		for (int i = 0; i < streetProcessor.getWidth(); i++) {
-			for (int j = 0; j < streetProcessor.getHeight(); j++) {
-				if (streetProcessor.get(i, j) == 255) {
-					Region region = this.fillFromSeed(streetProcessor, i, j, 255);
+		for (int y = 0; y < streetProcessor.getHeight(); y++) {
+			for (int x = 0; x < streetProcessor.getWidth(); x++) {
+				if (streetProcessor.get(x, y) == 255) {
+					Region region = this.fillFromSeed(streetProcessor, x, y, 255);
 					region.id = regionId++;
 					for (Pixel p : region.pixels) {
 						streetProcessor.set(p.x, p.y, 0);
@@ -114,10 +186,13 @@ public class Detect_Lanes implements PlugInFilter {
 
 					double regionSize = region.pixels.size();
 					double imageSize = streetProcessor.getPixelCount();
-					System.out.println("ID: " + region.id + "RegionSize: " + regionSize + " | ImageSize: " + imageSize);
+					// System.out.println("ID: " + region.id + "RegionSize: " +
+					// regionSize + " | ImageSize: " + imageSize);
 					if (regionSize > imageSize * regionSizeLowerThershold
-							&& regionSize < imageSize * regionSizeUpperThershold)
+							&& regionSize < imageSize * regionSizeUpperThershold) {
+						Collections.sort(region.pixels);
 						regions.add(region);
+					}
 				}
 			}
 		}
