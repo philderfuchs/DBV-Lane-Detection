@@ -109,27 +109,38 @@ public class Detect_Lanes implements PlugInFilter {
 		ArrayList<Region> regions = collectAndFilterOtherRegions(streetProcessor);
 
 		// int rankOfRegion = 0;
-		for (Region r : regions) {
-			// ip.drawString(String.valueOf(rankOfRegion++), r.pixels.get(0).x +
-			// roiOffsetX,
-			// r.pixels.get(0).y + roiOffsetY);
-			for (Pixel p : r.pixels) {
-				ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
-			}
-		}
+		// for (Region r : regions) {
+		// // ip.drawString(String.valueOf(rankOfRegion++), r.pixels.get(0).x +
+		// // roiOffsetX,
+		// // r.pixels.get(0).y + roiOffsetY);
+		// for (Pixel p : r.pixels) {
+		// ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((0 &
+		// 0xff) << 8) + (255 & 0xff));
+		// }
+		// }
 
 		if (regions.size() == 0)
 			return;
-		
+
 		ArrayList<ArrayList<Region>> dashedLanes = extractDashedLanes(regions);
 
-		int rankOfRegion = 0;
-		for (ArrayList<Region> dashedLine : dashedLanes) {
-			for (Region r : dashedLine) {
-				ip.drawString(String.valueOf(rankOfRegion++), r.pixels.get(0).x + roiOffsetX,
-						r.pixels.get(0).y + roiOffsetY);
-				for (Pixel p : r.pixels) {
+		// int rankOfRegion = 0;
+		ip.setColor(new Color(255, 255, 0));
+		for (ArrayList<Region> dashedLane : dashedLanes) {
+			for (int i = 0; i < dashedLane.size(); i++) {
+				// draw dash itself
+				for (Pixel p : dashedLane.get(i).pixels) {
 					ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
+				}
+				// draw line from dash do next dash
+				if (i < dashedLane.size() - 1) {
+					for (int j = -5; j <= 5; j++) {
+						ip.drawLine(
+								dashedLane.get(i).pixels.get(dashedLane.get(i).pixels.size() - 1).x + roiOffsetX + j,
+								dashedLane.get(i).pixels.get(dashedLane.get(i).pixels.size() - 1).y + roiOffsetY,
+								dashedLane.get(i + 1).pixels.get(0).x + roiOffsetX + j,
+								dashedLane.get(i + 1).pixels.get(0).y + roiOffsetY);
+					}
 				}
 			}
 		}
