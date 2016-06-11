@@ -84,7 +84,7 @@ public class Detect_Lanes implements PlugInFilter {
 		new ImagePlus("Dilated Edges Cropped", cropped);// .show();
 
 		Region street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0);
-		if( street.pixels.size() == 0) {
+		if (street.pixels.size() == 0) {
 			// Filling of street failed.
 			// Starting Backup Plan
 			street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0);
@@ -118,51 +118,55 @@ public class Detect_Lanes implements PlugInFilter {
 			}
 		}
 
-		ArrayList<ArrayList<Region>> dashedLines = new ArrayList<ArrayList<Region>>();
+		if (regions.size() == 0)
+			return;
+		
+		ArrayList<ArrayList<Region>> dashedLanes = extractDashedLanes(regions);
 
-		if (regions.size() > 0) {
-			dashedLines.add(new ArrayList<Region>());
-			dashedLines.get(dashedLines.size() - 1).add(regions.get(0));
-			Region dash = regions.get(0);
-			Region nextDash = null;
-
-			// find next region
-			while (regions.size() > 1) {
-				double minDistance = Double.MAX_VALUE;
-				regions.remove(dash);
-				for (int i = 0; i < regions.size(); i++) {
-					double currentDistance = this.distance(dash.pixels.get(dash.pixels.size() - 1),
-							regions.get(i).pixels.get(0));
-					if (currentDistance < minDistance) {
-						minDistance = currentDistance;
-						nextDash = regions.get(i);
-					}
-				}
-				if (dash.pixels.get(dash.pixels.size() - 1).y - nextDash.pixels.get(0).y > 0) {
-					// next line is positioned over current line
-					// start of next lane
-					dashedLines.add(new ArrayList<Region>());
-					// start over from top
-					nextDash = regions.get(0);
-				}
-				dashedLines.get(dashedLines.size() - 1).add(nextDash);
-				dash = nextDash;
-			}
-
-			int rankOfRegion = 0;
-			for (ArrayList<Region> dashedLine : dashedLines) {
-				for (Region r : dashedLine) {
-					ip.drawString(String.valueOf(rankOfRegion++), r.pixels.get(0).x + roiOffsetX,
-							r.pixels.get(0).y + roiOffsetY);
-					for (Pixel p : r.pixels) {
-						ip.set(p.x + roiOffsetX, p.y + roiOffsetY,
-								((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
-					}
+		int rankOfRegion = 0;
+		for (ArrayList<Region> dashedLine : dashedLanes) {
+			for (Region r : dashedLine) {
+				ip.drawString(String.valueOf(rankOfRegion++), r.pixels.get(0).x + roiOffsetX,
+						r.pixels.get(0).y + roiOffsetY);
+				for (Pixel p : r.pixels) {
+					ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
 				}
 			}
-
 		}
 
+	}
+
+	private ArrayList<ArrayList<Region>> extractDashedLanes(ArrayList<Region> regions) {
+		ArrayList<ArrayList<Region>> dashedLanes = new ArrayList<ArrayList<Region>>();
+
+		dashedLanes.add(new ArrayList<Region>());
+		dashedLanes.get(dashedLanes.size() - 1).add(regions.get(0));
+		Region dash = regions.get(0);
+		Region nextDash = null;
+
+		// find next region
+		while (regions.size() > 1) {
+			double minDistance = Double.MAX_VALUE;
+			regions.remove(dash);
+			for (int i = 0; i < regions.size(); i++) {
+				double currentDistance = this.distance(dash.pixels.get(dash.pixels.size() - 1),
+						regions.get(i).pixels.get(0));
+				if (currentDistance < minDistance) {
+					minDistance = currentDistance;
+					nextDash = regions.get(i);
+				}
+			}
+			if (dash.pixels.get(dash.pixels.size() - 1).y - nextDash.pixels.get(0).y > 0) {
+				// next line is positioned over current line
+				// start of next lane
+				dashedLanes.add(new ArrayList<Region>());
+				// start over from top
+				nextDash = regions.get(0);
+			}
+			dashedLanes.get(dashedLanes.size() - 1).add(nextDash);
+			dash = nextDash;
+		}
+		return dashedLanes;
 	}
 
 	private double distance(Pixel p1, Pixel p2) {
