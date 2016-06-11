@@ -13,6 +13,9 @@ import ij.process.ImageProcessor;
 
 public class Detect_Lanes implements PlugInFilter {
 
+	static final double regionSizeLowerThershold = 0.0;
+	static final double regionSizeUpperThershold = 0.3;
+
 	class Pixel implements Comparable<Pixel> {
 		int x;
 		int y;
@@ -84,6 +87,17 @@ public class Detect_Lanes implements PlugInFilter {
 		drawLanes(ip, roiOffsetX, roiOffsetY, leftLane, rightLane);
 
 		// get left regions
+		ArrayList<Region> regions = collectAndFilterOtherRegions(streetProcessor);
+
+		for (Region r : regions) {
+			for (Pixel p : r.pixels) {
+				ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
+			}
+		}
+
+	}
+
+	private ArrayList<Region> collectAndFilterOtherRegions(ByteProcessor streetProcessor) {
 		ArrayList<Region> regions = new ArrayList<Region>();
 		int regionId = 0;
 		for (int i = 0; i < streetProcessor.getWidth(); i++) {
@@ -91,17 +105,23 @@ public class Detect_Lanes implements PlugInFilter {
 				if (streetProcessor.get(i, j) == 255) {
 					Region region = this.fillFromSeed(streetProcessor, i, j, 255);
 					region.id = regionId++;
-					System.out.println(region.id);
 					for (Pixel p : region.pixels) {
 						streetProcessor.set(p.x, p.y, 0);
-						ip.set(p.x + roiOffsetX, p.y + roiOffsetY,
-								((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
+						// ip.set(p.x + roiOffsetX, p.y + roiOffsetY,
+						// ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 &
+						// 0xff));
 					}
-					regions.add(region);
+
+					double regionSize = region.pixels.size();
+					double imageSize = streetProcessor.getPixelCount();
+					System.out.println("ID: " + region.id + "RegionSize: " + regionSize + " | ImageSize: " + imageSize);
+					if (regionSize > imageSize * regionSizeLowerThershold
+							&& regionSize < imageSize * regionSizeUpperThershold)
+						regions.add(region);
 				}
 			}
 		}
-
+		return regions;
 	}
 
 	private void extractOuterLanes(Region street, ByteProcessor streetProcessor, Region leftLane, Region rightLane) {
@@ -126,13 +146,13 @@ public class Detect_Lanes implements PlugInFilter {
 	private void drawLanes(ImageProcessor ip, int roiOffsetX, int roiOffsetY, Region leftLane, Region rightLane) {
 		for (Pixel p : leftLane.pixels) {
 			for (int i = -10; i <= 0; i++)
-				ip.set(p.x + roiOffsetX + i, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((0 & 0xff) << 8) + (0 & 0xff));
+				ip.set(p.x + roiOffsetX - i, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((0 & 0xff) << 8) + (0 & 0xff));
 
 		}
 
 		for (Pixel p : rightLane.pixels) {
 			for (int i = 0; i <= 10; i++)
-				ip.set(p.x + roiOffsetX + i, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
+				ip.set(p.x + roiOffsetX - i, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
 		}
 	}
 
