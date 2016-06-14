@@ -16,7 +16,7 @@ public class Detect_Lanes implements PlugInFilter {
 
 	static final double regionSizeLowerThershold = 0.0;
 	static final double regionSizeUpperThershold = 0.3;
-	static final double meanRegionIntensityOfDash = 125.0;
+	static final double meanRegionIntensityOfDashThreshold = 125.0;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -108,18 +108,20 @@ public class Detect_Lanes implements PlugInFilter {
 		// regions come sorted from upper to lower positions of their respective
 		// top pixel
 		ArrayList<Region> regions = collectOtherRegions(streetProcessor);
-		regions = filterRegions(regions, streetProcessor);
+		regions = filterRegions(regions, streetProcessor, byteImageProcessor, roiOffsetX, roiOffsetY);
 
-//		for (Region r : regions) {
-//			double sum = 0;
-//
-//			for (Pixel p : r.pixels) {
-//				ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
-//				sum += byteImageProcessor.get(p.x + roiOffsetX, p.y + roiOffsetY);
-//			}
-//			ip.drawString(String.valueOf(sum / (double) r.pixels.size()), r.pixels.get(0).x + roiOffsetX,
-//					r.pixels.get(0).y + roiOffsetY);
-//		}
+		// for (Region r : regions) {
+		// double sum = 0;
+		//
+		// for (Pixel p : r.pixels) {
+		// ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((0 &
+		// 0xff) << 8) + (255 & 0xff));
+		// sum += byteImageProcessor.get(p.x + roiOffsetX, p.y + roiOffsetY);
+		// }
+		// ip.drawString(String.valueOf(sum / (double) r.pixels.size()),
+		// r.pixels.get(0).x + roiOffsetX,
+		// r.pixels.get(0).y + roiOffsetY);
+		// }
 
 		if (regions.size() == 0)
 			return;
@@ -186,18 +188,25 @@ public class Detect_Lanes implements PlugInFilter {
 		return Math.sqrt(Math.pow((((double) p1.x - p2.x)), 2) + Math.pow((((double) p1.y - p2.y)), 2));
 	}
 
-	private ArrayList<Region> filterRegions(ArrayList<Region> regions, ByteProcessor streetProcessor) {
+	private ArrayList<Region> filterRegions(ArrayList<Region> regions, ByteProcessor streetProcessor,
+			ByteProcessor originalByteImage, int roiOffsetX, int roiOffsetY) {
 		ArrayList<Region> filteredRegions = new ArrayList<Region>();
 		double imageSize = streetProcessor.getPixelCount();
 
-		for(Region r : regions) {
+		for (Region r : regions) {
+			int sum = 0;
+			for (Pixel p : r.pixels) {
+				sum += originalByteImage.get(p.x + roiOffsetX, p.y + roiOffsetY);
+			}
+			double mean = (double) sum / (double) r.pixels.size();
 
 			if (r.pixels.size() > imageSize * regionSizeLowerThershold
-					&& r.pixels.size() < imageSize * regionSizeUpperThershold) {
+					&& r.pixels.size() < imageSize * regionSizeUpperThershold
+					&& mean >= meanRegionIntensityOfDashThreshold) {
 				filteredRegions.add(r);
 			}
 		}
-		
+
 		return filteredRegions;
 	}
 
