@@ -252,13 +252,13 @@ public class Detect_Lanes implements PlugInFilter {
 	private void drawLanes(ImageProcessor ip, int roiOffsetX, int roiOffsetY, Region leftLane, Region rightLane) {
 		for (Pixel p : leftLane.pixels) {
 			for (int i = -10; i <= 0; i++)
-				ip.set(p.x + roiOffsetX - i, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((0 & 0xff) << 8) + (0 & 0xff));
+				ip.set(p.x + roiOffsetX + i, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((0 & 0xff) << 8) + (0 & 0xff));
 
 		}
 
 		for (Pixel p : rightLane.pixels) {
 			for (int i = 0; i <= 10; i++)
-				ip.set(p.x + roiOffsetX - i, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
+				ip.set(p.x + roiOffsetX + i, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
 		}
 	}
 
