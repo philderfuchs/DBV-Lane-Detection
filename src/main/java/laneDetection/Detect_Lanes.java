@@ -41,6 +41,74 @@ public class Detect_Lanes implements PlugInFilter {
 		ArrayList<Pixel> pixels = new ArrayList<Pixel>();
 		int id;
 		double mean;
+		private int _rowCount = 0;
+
+		// Only works if someone sorted pixels beforehand
+		public Pixel getTopCenterPixel() {
+			_rowCount = (_rowCount != 0) ? _rowCount : calculateRowCount();
+			int targetRow = _rowCount / 4;
+
+			int firstPixelOfRowIndex = 0, lastPixelOfRowIndex = 0;
+			int index = 0, currentRow = 1;
+			boolean firstPixelFound = false;
+			int y = pixels.get(0).y;
+			for (Pixel p : pixels) {
+				if (p.y != y) {
+					currentRow++;
+					y = p.y;
+				}
+				if (currentRow == targetRow && !firstPixelFound) {
+					firstPixelOfRowIndex = index;
+					firstPixelFound = true;
+				}
+				if (currentRow > targetRow) {
+					lastPixelOfRowIndex = index - 1;
+					break;
+				}
+				index++;
+			}
+			return pixels.get(firstPixelOfRowIndex + ((lastPixelOfRowIndex - firstPixelOfRowIndex) / 2));
+		}
+
+		public Pixel getBottomCenterPixel() {
+			_rowCount = (_rowCount != 0) ? _rowCount : calculateRowCount();
+			int targetRow = _rowCount - _rowCount / 4;
+
+			int currentRow = _rowCount;
+			int firstPixelOfRowIndex = 0, lastPixelOfRowIndex = 0;
+			int index = pixels.size() - 1;
+			int y = pixels.get(pixels.size() - 1).y;
+			boolean lastPixelFound = false;
+
+			for (int i = pixels.size() - 1; i >= 0; i--) {
+				if (pixels.get(i).y != y) {
+					currentRow--;
+					y = pixels.get(i).y;
+				}
+				if (currentRow == targetRow && !lastPixelFound) {
+					lastPixelOfRowIndex = index;
+					lastPixelFound = true;
+				}
+				if (currentRow < targetRow) {
+					firstPixelOfRowIndex = index + 1;
+					break;
+				}
+				index--;
+			}
+			return pixels.get(firstPixelOfRowIndex + ((lastPixelOfRowIndex - firstPixelOfRowIndex) / 2));
+		}
+
+		private int calculateRowCount() {
+			int y = pixels.get(0).y;
+			int rowCount = 0;
+			for (Pixel p : pixels) {
+				if (p.y != y) {
+					rowCount++;
+					y = p.y;
+				}
+			}
+			return rowCount;
+		}
 
 		// only works with sorted pixel lists
 		public int compareTo(Region o) {
@@ -96,7 +164,7 @@ public class Detect_Lanes implements PlugInFilter {
 		for (Pixel p : street.pixels) {
 			streetProcessor.set(p.x, p.y, 0);
 		}
-		//streetPlus.show();
+		// streetPlus.show();
 
 		Region leftLane = new Region();
 		Region rightLane = new Region();
@@ -119,7 +187,6 @@ public class Detect_Lanes implements PlugInFilter {
 		// Draw dashed Lanes by connecting the dashes of each lane
 		for (ArrayList<Region> dashedLane : dashedLanes) {
 			for (int i = 0; i < dashedLane.size(); i++) {
-
 				// draw dash itself
 				for (Pixel p : dashedLane.get(i).pixels) {
 					ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
@@ -127,13 +194,21 @@ public class Detect_Lanes implements PlugInFilter {
 				// draw line from dash do next dash
 				if (i < dashedLane.size() - 1) {
 					for (int j = -5; j <= 5; j++) {
-						ip.drawLine(
-								dashedLane.get(i).pixels.get(dashedLane.get(i).pixels.size() - 1).x + roiOffsetX + j,
-								dashedLane.get(i).pixels.get(dashedLane.get(i).pixels.size() - 1).y + roiOffsetY,
-								dashedLane.get(i + 1).pixels.get(0).x + roiOffsetX + j,
-								dashedLane.get(i + 1).pixels.get(0).y + roiOffsetY);
+						ip.drawLine(dashedLane.get(i).getBottomCenterPixel().x + roiOffsetX + j,
+								dashedLane.get(i).getBottomCenterPixel().y + roiOffsetY,
+								dashedLane.get(i + 1).getTopCenterPixel().x + roiOffsetX + j,
+								dashedLane.get(i + 1).getTopCenterPixel().y + roiOffsetY);
 					}
 				}
+
+				// draw center Pixels
+				// ip.set(dashedLane.get(i).getTopCenterPixel().x + roiOffsetX,
+				// dashedLane.get(i).getTopCenterPixel().y + roiOffsetY,
+				// ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
+				// ip.set(dashedLane.get(i).getBottomCenterPixel().x +
+				// roiOffsetX,
+				// dashedLane.get(i).getBottomCenterPixel().y + roiOffsetY,
+				// ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
 			}
 		}
 
@@ -178,10 +253,10 @@ public class Detect_Lanes implements PlugInFilter {
 
 	private ArrayList<Region> filterRegions(ArrayList<Region> regions, ByteProcessor streetProcessor,
 			ByteProcessor originalByteImage, int roiOffsetX, int roiOffsetY) {
-		
+
 		ArrayList<Region> filteredRegions = new ArrayList<Region>();
 		double imageSize = streetProcessor.getPixelCount();
-		//First filter by size
+		// First filter by size
 
 		for (Region r : regions) {
 			int sum = 0;
@@ -198,9 +273,9 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 		regions = filteredRegions;
 		filteredRegions = new ArrayList<Region>();
-		
+
 		// now filter by intensity
-		
+
 		// calculate intensity threshold
 		int iterationLimit = Math.min(2, regions.size());
 		double pixelIntensitySum = 0;
