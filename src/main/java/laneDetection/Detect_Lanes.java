@@ -16,7 +16,6 @@ public class Detect_Lanes implements PlugInFilter {
 
 	static final double regionSizeLowerThershold = 0.0;
 	static final double regionSizeUpperThershold = 0.3;
-	static final double meanRegionIntensityOfDashThreshold = 125.0;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -41,6 +40,7 @@ public class Detect_Lanes implements PlugInFilter {
 	class Region implements Comparable<Region> {
 		ArrayList<Pixel> pixels = new ArrayList<Pixel>();
 		int id;
+		double mean;
 
 		// only works with sorted pixel lists
 		public int compareTo(Region o) {
@@ -96,7 +96,7 @@ public class Detect_Lanes implements PlugInFilter {
 		for (Pixel p : street.pixels) {
 			streetProcessor.set(p.x, p.y, 0);
 		}
-		streetPlus.show();
+		//streetPlus.show();
 
 		Region leftLane = new Region();
 		Region rightLane = new Region();
@@ -110,28 +110,16 @@ public class Detect_Lanes implements PlugInFilter {
 		ArrayList<Region> regions = collectOtherRegions(streetProcessor);
 		regions = filterRegions(regions, streetProcessor, byteImageProcessor, roiOffsetX, roiOffsetY);
 
-		// for (Region r : regions) {
-		// double sum = 0;
-		//
-		// for (Pixel p : r.pixels) {
-		// ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((0 &
-		// 0xff) << 8) + (255 & 0xff));
-		// sum += byteImageProcessor.get(p.x + roiOffsetX, p.y + roiOffsetY);
-		// }
-		// ip.drawString(String.valueOf(sum / (double) r.pixels.size()),
-		// r.pixels.get(0).x + roiOffsetX,
-		// r.pixels.get(0).y + roiOffsetY);
-		// }
-
 		if (regions.size() == 0)
 			return;
 
 		ArrayList<ArrayList<Region>> dashedLanes = extractDashedLanes(regions);
+		ip.setColor(Color.YELLOW);
 
 		// Draw dashed Lanes by connecting the dashes of each lane
-		ip.setColor(new Color(255, 255, 0));
 		for (ArrayList<Region> dashedLane : dashedLanes) {
 			for (int i = 0; i < dashedLane.size(); i++) {
+
 				// draw dash itself
 				for (Pixel p : dashedLane.get(i).pixels) {
 					ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
@@ -190,8 +178,10 @@ public class Detect_Lanes implements PlugInFilter {
 
 	private ArrayList<Region> filterRegions(ArrayList<Region> regions, ByteProcessor streetProcessor,
 			ByteProcessor originalByteImage, int roiOffsetX, int roiOffsetY) {
+		
 		ArrayList<Region> filteredRegions = new ArrayList<Region>();
 		double imageSize = streetProcessor.getPixelCount();
+		//First filter by size
 
 		for (Region r : regions) {
 			int sum = 0;
@@ -199,10 +189,41 @@ public class Detect_Lanes implements PlugInFilter {
 				sum += originalByteImage.get(p.x + roiOffsetX, p.y + roiOffsetY);
 			}
 			double mean = (double) sum / (double) r.pixels.size();
+			r.mean = mean;
 
 			if (r.pixels.size() > imageSize * regionSizeLowerThershold
-					&& r.pixels.size() < imageSize * regionSizeUpperThershold
-					&& mean >= meanRegionIntensityOfDashThreshold) {
+					&& r.pixels.size() < imageSize * regionSizeUpperThershold) {
+				filteredRegions.add(r);
+			}
+		}
+		regions = filteredRegions;
+		filteredRegions = new ArrayList<Region>();
+		
+		// now filter by intensity
+		
+		// calculate intensity threshold
+		int iterationLimit = Math.min(2, regions.size());
+		double pixelIntensitySum = 0;
+		double count = 0;
+		for (int i = 0; i < iterationLimit; i++) {
+			for (Pixel p : regions.get(i).pixels) {
+				pixelIntensitySum += originalByteImage.get(p.x + roiOffsetX, p.y + roiOffsetY);
+				count++;
+			}
+		}
+
+		double meanLaneMarkingIntensity = pixelIntensitySum / count;
+
+		// filter out too dark regions
+		for (Region r : regions) {
+			int sum = 0;
+			for (Pixel p : r.pixels) {
+				sum += originalByteImage.get(p.x + roiOffsetX, p.y + roiOffsetY);
+			}
+			double mean = (double) sum / (double) r.pixels.size();
+			r.mean = mean;
+
+			if (mean >= meanLaneMarkingIntensity - 10) {
 				filteredRegions.add(r);
 			}
 		}
