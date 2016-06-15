@@ -200,15 +200,6 @@ public class Detect_Lanes implements PlugInFilter {
 								dashedLane.get(i + 1).getTopCenterPixel().y + roiOffsetY);
 					}
 				}
-
-				// draw center Pixels
-				// ip.set(dashedLane.get(i).getTopCenterPixel().x + roiOffsetX,
-				// dashedLane.get(i).getTopCenterPixel().y + roiOffsetY,
-				// ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
-				// ip.set(dashedLane.get(i).getBottomCenterPixel().x +
-				// roiOffsetX,
-				// dashedLane.get(i).getBottomCenterPixel().y + roiOffsetY,
-				// ((0 & 0xff) << 16) + ((0 & 0xff) << 8) + (255 & 0xff));
 			}
 		}
 
@@ -221,20 +212,25 @@ public class Detect_Lanes implements PlugInFilter {
 		dashedLanes.get(dashedLanes.size() - 1).add(regions.get(0));
 		Region dash = regions.get(0);
 		Region nextDash = null;
-
+		boolean lookLeft = true;
 		// find next region
 		while (regions.size() > 1) {
 			double minDistance = Double.MAX_VALUE;
 			regions.remove(dash);
+			lookLeft = dash.getTopCenterPixel().x > dash.getBottomCenterPixel().x;
 			for (int i = 0; i < regions.size(); i++) {
-				double currentDistance = this.distance(dash.pixels.get(dash.pixels.size() - 1),
-						regions.get(i).pixels.get(0));
+				if ((dash.getTopCenterPixel().x < regions.get(i).getTopCenterPixel().x && lookLeft)
+						|| (dash.getTopCenterPixel().x > regions.get(i).getTopCenterPixel().x && !lookLeft))
+					continue;
+				
+				double currentDistance = this.distance(dash.getBottomCenterPixel(),
+						regions.get(i).getTopCenterPixel());
 				if (currentDistance < minDistance) {
 					minDistance = currentDistance;
 					nextDash = regions.get(i);
 				}
 			}
-			if (dash.pixels.get(dash.pixels.size() - 1).y - nextDash.pixels.get(0).y > 0) {
+			if (dash.getBottomCenterPixel().y >= nextDash.getTopCenterPixel().y) {
 				// next line is positioned over current line
 				// start of next lane
 				dashedLanes.add(new ArrayList<Region>());
