@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Dokumentationsformat: -->
+<!-- element name -->
+<!-- Vorkommen [min .. max] -->
+<!-- attribute ::== wenn zutreffend Wertebereich [min .. max) ; Datentyp -->
+<!-- elements: name [vorkommen], name [vorkommen] -->
+<!-- Beschreibung -->
+<!-- falls einfaches Element, Datentype des inhalts. Z.B. bei '<text>abc<text>', steht hier 'string' -->
+
+<!-- XML Datentypen, siehe 'https://www.w3.org/TR/xmlschema11-2/#built-in-datatypes' -->
+
+<!-- Koordinaten immer in Bildkoordinaten -->
+<!-- D.h. Ursprung liegt oben links. Y steigt nach unten, X steigt nach rechts  -->
+
+
+<!-- video -->
+<!-- [1 .. 1] -->
+<!-- elements: info [1 .. 1], frames [0 .. 1] -->
+<!-- Wurzelelement -->
+<video xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="objectDetection.xsd">
+    
+    <!-- info -->
+    <!-- [1 .. 1] -->
+    <!-- elements: file [1 .. 1], hash [0 .. 1], id [0 .. 1], name [0 .. 1], description [0 .. 1], frameRate [0 .. 1], frameCount [1 .. 1], camera [0 .. 1] -->
+    <!-- Metadaten zur Datei -->
+    <info>
+        
+        <!-- file -->
+        <!-- [1 .. 1] -->
+        <!-- type ::== (file | folder)  -->
+        <!-- Dateipfad -->
+        <!-- relativ zur XML Datei, '/' als Separator, case sensitive -->
+        <!-- bei 'type="folder"' entsprechenden selector mit angeben -->
+        <!-- z.B. 'path/to/folder/input*.jpg' -->
+        <file type="file">path/to/filename.jpg</file>
+        
+        <!-- hash -->
+        <!-- [0 .. 1] -->
+        <!-- type ::== (md5 | sha128 | sha256 | sha512) -->
+        <!-- bei Ordnern ein Hash aller Dateien zusammengefasst -->
+        <!-- bei Dateien ein Hash der Datei -->
+        <hash type="md5">ae61382ebb2a5b6bcc2e5aacc6402b04</hash>
+        
+        <!-- id -->
+        <!-- [0 .. 1] -->
+        <!-- User definierte ID der Datei -->
+        <!-- token, ohne Leerzeichen -->
+        <id>aHhq53FM4U51j</id>
+        
+        <!-- name -->
+        <!-- [0 .. 1] -->
+        <!-- User definierter, Menschen lesbarer, Bezeichner der Datei -->
+        <!-- token, ohne Leerzeichen -->
+        <name>EgoLane</name>
+        
+        <!-- description -->
+        <!-- [0 .. 1] -->
+        <!-- User definierte Beschreibung der Datei -->
+        <!-- String -->
+        <description>EgoLane Aufgabe</description>
+        
+        <!-- frameCount -->
+        <!-- [1 .. 1] -->
+        <!-- Anzahl der Frames -->
+        <!-- unsigned long -->
+        <frameCount>1</frameCount>
+    </info>
+    <!-- frames -->
+    <!-- [0 .. 1] -->
+    <!-- elements: frame [1 .. 0] -->
+    <!-- alle Frames, in denen Objekte erkannt wurden -->
+    <frames>
+        <!-- frame -->
+        <!-- [1 .. frameCount] -->
+        <!-- elements: info [1 .. 1], objects [0 .. n] -->
+        <!-- index ::== [0 .. frameCount-1] -->
+        <frame index="212">
+            <!-- info -->
+            <!-- [1 .. 1] -->
+            <!-- elements: day [1 .. 1], night [1 .. 1], name [0 .. 1], description [0 .. 1], tag [0 .. n] -->
+            <!-- Frameinformationen --> 
+            <info>
+                <!-- day -->
+                <!-- [1 .. 1] -->
+                <!-- confidence ::== [0.0 .. 1.0] ; double -->
+                <!-- Konfidenz ob Aufnahme am Tag erfolgte -->
+                <day confidence="0.8"/>
+                <!-- night -->
+                <!-- [1 .. 1] -->
+                <!-- confidence ::== [0.0 .. 1.0] ; double -->
+                <!-- Konfidenz ob Aufnahme Nachts erfolgte -->
+                <night confidence="0.2"/>
+            </info>
+            
+            <!-- objects -->
+            <!-- [0 .. 1] -->
+            <!-- elements: object [1 .. n] -->
+            <!-- in diesem Frame erkannte Objekte -->
+            <objects>
+                <!-- object -->
+                <!-- [1 .. n] -->
+                <!-- id ::== token, ohne Leerzeichen (z.B. UUID)-->
+                <!-- elements: info [0 .. 1], shape [1 .. 1], text [0 .. 1] -->
+                <!-- Objekte werden via 'id' ueber mehrere Frames registriert -->
+                <!-- Erkanntes Objekt -->
+                <object id="ZB3uLO-tB326cpSdDaK3b7v_">
+                    <!-- info -->
+                    <!-- [0 .. 1] -->
+                    <!-- elements: category [0 .. n], group [0 .. n], name [0 .. 1], -->
+                    <!--           description [0 .. 1], tag [0 .. n], intAttribute [0 .. n], -->
+                    <!--           floatAttribute [0 .. n], doubleAttribute [0 .. n], -->
+                    <!--           stringAttribute [0 .. n], booleanAttribute [0 .. n] -->
+                    <!-- Objektinformationen -->
+                    <info>
+                        <!-- category -->
+                        <!-- [0 .. n] -->
+                        <!-- confidence ::== [0.0 .. 1.0]; double -->
+                        <!-- Objektkategorie -->
+                        <!-- token, ohne Leerzeichen, unique -->
+                        <category confidence="0.9">road_mark</category>
+                        <category confidence="0.1">tasty_venison</category>
+                        
+                        <!-- booleanAttribute -->
+                        <!-- [0 .. n] -->
+                        <!-- key ::== token, ohne Leerzeichen -->
+                        <!-- ein Attribut des Objekts, key - value pair. -->
+                        <!-- (true | false | 0 | 1) -->                        
+                        <booleanAttribute key="leftMark">true</booleanAttribute>
+                    </info>
+                    
+                    <!-- shape -->
+                    <!-- [1 .. 1] -->
+                    <!-- type ::== (rectangle | polygon | line | polyline | point | points) -->
+                    <!-- Kind-Tags sind je nach 'type' unterschiedlich -->
+                    <!-- Objekt beschreibende Form -->
+                    
+                    <!-- points -->
+                    <!-- elements: point [1 .. n] -->
+                    <!-- eine Punktliste -->
+                    <shape type="points">
+                        <!-- point -->
+                        <!-- [1 .. 1] -->
+                        <!-- elements: x [1 .. 1], y [1 .. 1] -->
+                        <!-- ein Punkt -->
+                        <point>
+                            <!-- x -->
+                            <!-- [0 .. n] -->
+                            <!-- unsigned int -->
+                            <x>1</x>
+                            <!-- y -->
+                            <!-- [0 .. n] -->
+                            <!-- unsigned int -->
+                            <y>2</y>
+                        </point>
+                        <point>
+                            <x>321</x>
+                            <y>0</y>
+                        </point>
+                    </shape>
+                </object>
+                <!-- <object> ... </object> -->
+            </objects>
+        </frame>
+    </frames>
+</video>

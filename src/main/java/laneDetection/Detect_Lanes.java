@@ -139,7 +139,8 @@ public class Detect_Lanes implements PlugInFilter {
 	}
 
 	public void run(ImageProcessor ip) {
-		ByteProcessor byteImageProcessor = (ByteProcessor) ip.convertToByte(true);
+		ImageProcessor expProcessor = ip.duplicate().exp();
+		ByteProcessor byteImageProcessor = (ByteProcessor) expProcessor.convertToByte(true);
 
 		int roiOffsetX = 0;
 		int roiOffsetY = ip.getHeight() / 2;
