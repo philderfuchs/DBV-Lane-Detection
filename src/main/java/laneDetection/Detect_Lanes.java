@@ -16,7 +16,7 @@ import ij.process.ImageProcessor;
 public class Detect_Lanes implements PlugInFilter {
 
 	static final double regionSizeLowerThreshold = 0.0;
-	static final double regionSizeUpperThreshold = 0.05;
+	static final double regionSizeUpperThreshold = 0.1;
 	static final boolean expMode = true;
 
 	class Pixel implements Comparable<Pixel> {
@@ -158,27 +158,42 @@ public class Detect_Lanes implements PlugInFilter {
 		roiImage.show();
 
 		IJ.run("Canny Edge Detector", "gaussian=2 low=2.5 high=7.5");
-		ImageProcessor roiImageProcessor = (ByteProcessor) roiImage.getProcessor();
+		ImageProcessor roiImageProcessor = (ByteProcessor)roiImage.getProcessor();
 		roiImageProcessor.dilate();
 		roiImageProcessor.dilate();
 		roiImage.close();
 
-		// new ImagePlus("Dilated Edges", byteImageProcessor).show();
+		// new ImagePlus("Dilated Edges", roiImageProcessor).show();
 
 		int edgeInset = 12;
 		roiOffsetX += edgeInset;
 		roiOffsetY += edgeInset;
 		roi = new Roi(edgeInset, edgeInset, roiImageProcessor.getWidth() - edgeInset * 2, roiImageProcessor.getHeight() - edgeInset * 2);
 		roiImageProcessor.setRoi(roi);
-		ByteProcessor cropped = (ByteProcessor) roiImageProcessor.crop();
-		// new ImagePlus("Dilated Edges Cropped", cropped).show();
-
-		Region street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0);
-		if (street.pixels.size() == 0) {
-			// Filling of street failed.
-			// Starting Backup Plan
-			street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0);
+		ByteProcessor cropped = (ByteProcessor)roiImageProcessor.crop();
+		ImagePlus croppedImage = new ImagePlus();
+		Region street = new Region();
+		
+		int cutter = 10;
+		while (street.pixels.size() == 0 || street.pixels.size() > cropped.getPixelCount() * 0.5) {
+			roi = new Roi(0, cutter, cropped.getWidth() - 1, cropped.getHeight() - (cutter + 1));
+			cropped.setRoi(roi);
+			cropped = (ByteProcessor)cropped.crop();
+			
+			roiOffsetY += cutter;
+			
+			// croppedImage.close();
+			// croppedImage = new ImagePlus("Dilated Edges Cropped", cropped);
+			
+			street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0);
+			
+			if (street.pixels.size() == 0) {
+				// Filling of street failed.
+				// Starting Backup Plan
+				street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0);
+			}
 		}
+		
 		ImagePlus streetPlus = NewImage.createByteImage("Detected Street", cropped.getWidth(), cropped.getHeight(), 1,
 				NewImage.FILL_WHITE);
 		ByteProcessor streetProcessor = (ByteProcessor) streetPlus.getProcessor();
