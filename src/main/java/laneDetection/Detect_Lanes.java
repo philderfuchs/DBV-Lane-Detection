@@ -17,7 +17,6 @@ public class Detect_Lanes implements PlugInFilter {
 
 	static final double regionSizeLowerThreshold = 0.0;
 	static final double regionSizeUpperThreshold = 0.1;
-	static final boolean expMode = true;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -141,15 +140,29 @@ public class Detect_Lanes implements PlugInFilter {
 
 	public void run(ImageProcessor ip) {
 		ImageProcessor expProcessor = ip.duplicate();
-		
-		// Use exp() on spotty lanes
-		if (expMode)
-			expProcessor.exp();
-		
+		expProcessor.exp();
+
 		ByteProcessor byteImageProcessor = (ByteProcessor)expProcessor.convertToByte(true);
 
+		System.out.println("Starting.");
+
+		boolean success = processImage(ip, byteImageProcessor, true);
+		if (!success) {
+			System.out.println("Didn’t work, repeating without exp().");
+			success = processImage(ip, (ByteProcessor)ip.convertToByte(true), false);
+
+			if (!success) {
+				System.out.println("Failed. :(");
+				return;
+			}
+		}
+
+		System.out.println("Done.");
+	}
+
+	boolean processImage(ImageProcessor ip, ByteProcessor byteImageProcessor, boolean expMode) {
 		int roiOffsetX = 0;
-		int roiOffsetY = ip.getHeight() * 2 / 3;
+		int roiOffsetY = ip.getHeight() / 2;
 
 		Roi roi = new Roi(0, roiOffsetY, ip.getWidth() - roiOffsetX - 1, ip.getHeight() - roiOffsetY - 1);
 		byteImageProcessor.setRoi(roi);
@@ -157,7 +170,9 @@ public class Detect_Lanes implements PlugInFilter {
 		ImagePlus roiImage = new ImagePlus("Grayscale with ROI", byteImageProcessor.crop());
 		roiImage.show();
 
+		System.out.print("Waiting on Canny Edge Detector ...");
 		IJ.run("Canny Edge Detector", "gaussian=2 low=2.5 high=7.5");
+		System.out.println(" has finished.");
 		ImageProcessor roiImageProcessor = (ByteProcessor)roiImage.getProcessor();
 		roiImageProcessor.dilate();
 		roiImageProcessor.dilate();
@@ -171,38 +186,46 @@ public class Detect_Lanes implements PlugInFilter {
 		roi = new Roi(edgeInset, edgeInset, roiImageProcessor.getWidth() - edgeInset * 2, roiImageProcessor.getHeight() - edgeInset * 2);
 		roiImageProcessor.setRoi(roi);
 		ByteProcessor cropped = (ByteProcessor)roiImageProcessor.crop();
-		ImagePlus croppedImage = new ImagePlus();
 		Region street = new Region();
-		
-		int cutter = 10;
-		while (street.pixels.size() == 0 || street.pixels.size() > cropped.getPixelCount() * 0.5) {
-			roi = new Roi(0, cutter, cropped.getWidth() - 1, cropped.getHeight() - (cutter + 1));
-			cropped.setRoi(roi);
-			cropped = (ByteProcessor)cropped.crop();
-			
-			roiOffsetY += cutter;
-			
-			// croppedImage.close();
-			// croppedImage = new ImagePlus("Dilated Edges Cropped", cropped);
-			
-			street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0);
-			
-			if (street.pixels.size() == 0) {
-				// Filling of street failed.
-				// Starting Backup Plan
-				street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0);
+
+		int cutter = 20;
+		int loopCount = 0;
+		do {
+			System.out.println("Trying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ") + (expMode ? "in exp mode." : "in normal mode."));
+
+			if (expMode) {
+				roi = new Roi(0, cutter, cropped.getWidth() - 1, cropped.getHeight() - (cutter + 1));
+				cropped.setRoi(roi);
+				cropped = (ByteProcessor)cropped.crop();
+				roiOffsetY += cutter;
 			}
-		}
-		
+
+			if (cropped.getHeight() > byteImageProcessor.getHeight() / 4) {
+				street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0);
+
+				if (street.pixels.size() == 0) {
+					// Filling of street failed.
+					// Starting Backup Plan
+					street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0);
+
+					// If still failing, stop completely
+					if (street.pixels.size() == 0)
+						return false;
+				}
+			} else {
+				return false;
+			}
+		} while (expMode && street.pixels.size() > cropped.getPixelCount() * 0.5);
+
 		ImagePlus streetPlus = NewImage.createByteImage("Detected Street", cropped.getWidth(), cropped.getHeight(), 1,
 				NewImage.FILL_WHITE);
 		ByteProcessor streetProcessor = (ByteProcessor) streetPlus.getProcessor();
 		for (Pixel p : street.pixels) {
 			streetProcessor.set(p.x, p.y, 128);
 		}
-		
-		// Show asphalt
-		streetPlus.show();
+
+		// // Show asphalt
+		// streetPlus.show();
 
 		Region leftLane = new Region();
 		Region rightLane = new Region();
@@ -217,7 +240,7 @@ public class Detect_Lanes implements PlugInFilter {
 		regions = filterRegions(regions, streetProcessor, byteImageProcessor, roiOffsetX, roiOffsetY);
 
 		if (regions.size() == 0)
-			return;
+			return true;
 
 		ArrayList<ArrayList<Region>> dashedLanes = extractDashedLanes(regions);
 		ip.setColor(Color.YELLOW);
@@ -225,7 +248,6 @@ public class Detect_Lanes implements PlugInFilter {
 		// Draw dashed Lanes by connecting the dashes of each lane
 		for (ArrayList<Region> dashedLane : dashedLanes) {
 			for (int i = 0; i < dashedLane.size(); i++) {
-				
 
 				// draw dash itself
 				for (Pixel p : dashedLane.get(i).pixels) {
@@ -250,7 +272,6 @@ public class Detect_Lanes implements PlugInFilter {
 					}, new int[] { dashedLane.get(i).firstPixelOfBottomRow.y + roiOffsetY,
 							dashedLane.get(i + 1).firstPixelOfTopRow.y + roiOffsetY, dashedLane.get(i + 1).lastPixelOfTopRow.y + roiOffsetY,
 							dashedLane.get(i).lastPixelOfBottomRow.y + roiOffsetY,
-
 					}, 4));
 				} else {
 					//draw end of lane
@@ -258,23 +279,21 @@ public class Detect_Lanes implements PlugInFilter {
 					double dX = dashedLane.get(i).getBottomCenterPixel().x - dashedLane.get(i).getTopCenterPixel().x;
 					double m = dY / dX;
 					double n = dashedLane.get(i).getBottomCenterPixel().y - m * dashedLane.get(i).getBottomCenterPixel().x;
-					
+
 					int targetX = (int) ((streetProcessor.getHeight()-1-n)/m);
 					int thickness = (dashedLane.get(i).lastPixelOfBottomRow.x - dashedLane.get(i).firstPixelOfBottomRow.x)/2;
-					
+
 					for(int j = -1 * thickness; j <= thickness; j++) {
 						ip.drawLine(dashedLane.get(i).getBottomCenterPixel().x + roiOffsetX + j ,
 								dashedLane.get(i).getBottomCenterPixel().y + roiOffsetY,
 								targetX + roiOffsetX + j,
 								streetProcessor.getHeight() -1 + roiOffsetY);
 					}
-
 				}
-
 			}
 		}
-		
 
+		return true;
 	}
 
 	private ArrayList<ArrayList<Region>> extractDashedLanes(ArrayList<Region> regions) {
