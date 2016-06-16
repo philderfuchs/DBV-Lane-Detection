@@ -139,8 +139,7 @@ public class Detect_Lanes implements PlugInFilter {
 	}
 
 	public void run(ImageProcessor ip) {
-		ImageProcessor expProcessor = ip.duplicate().exp();
-		ByteProcessor byteImageProcessor = (ByteProcessor) expProcessor.convertToByte(true);
+		ByteProcessor byteImageProcessor = (ByteProcessor) ip.convertToByte(true);
 
 		int roiOffsetX = 0;
 		int roiOffsetY = ip.getHeight() / 2;
@@ -200,6 +199,8 @@ public class Detect_Lanes implements PlugInFilter {
 		// Draw dashed Lanes by connecting the dashes of each lane
 		for (ArrayList<Region> dashedLane : dashedLanes) {
 			for (int i = 0; i < dashedLane.size(); i++) {
+				
+
 				// draw dash itself
 				for (Pixel p : dashedLane.get(i).pixels) {
 					ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
@@ -225,9 +226,28 @@ public class Detect_Lanes implements PlugInFilter {
 							dashedLane.get(i).lastPixelOfBottomRow.y + roiOffsetY,
 
 					}, 4));
+				} else {
+					//draw end of lane
+					double dY = dashedLane.get(i).getBottomCenterPixel().y - dashedLane.get(i).getTopCenterPixel().y;
+					double dX = dashedLane.get(i).getBottomCenterPixel().x - dashedLane.get(i).getTopCenterPixel().x;
+					double m = dY / dX;
+					double n = dashedLane.get(i).getBottomCenterPixel().y - m * dashedLane.get(i).getBottomCenterPixel().x;
+					
+					int targetX = (int) ((streetProcessor.getHeight()-1-n)/m);
+					int thickness = (dashedLane.get(i).lastPixelOfBottomRow.x - dashedLane.get(i).firstPixelOfBottomRow.x)/2;
+					
+					for(int j = -1 * thickness; j <= thickness; j++) {
+						ip.drawLine(dashedLane.get(i).getBottomCenterPixel().x + roiOffsetX + j ,
+								dashedLane.get(i).getBottomCenterPixel().y + roiOffsetY,
+								targetX + roiOffsetX + j,
+								streetProcessor.getHeight() -1 + roiOffsetY);
+					}
+
 				}
+
 			}
 		}
+		
 
 	}
 
@@ -239,14 +259,16 @@ public class Detect_Lanes implements PlugInFilter {
 		Region dash = regions.get(0);
 		Region nextDash = dash;
 		boolean lookLeft = true;
+		boolean lookBothWays = true;
 		// find next region
 		while (regions.size() > 1) {
 			double minDistance = Double.MAX_VALUE;
 			regions.remove(dash);
+			lookBothWays = dash.getTopCenterPixel().x == dash.getBottomCenterPixel().x;
 			lookLeft = dash.getTopCenterPixel().x > dash.getBottomCenterPixel().x;
 			for (int i = 0; i < regions.size(); i++) {
-				if ((dash.getTopCenterPixel().x < regions.get(i).getTopCenterPixel().x && lookLeft)
-						|| (dash.getTopCenterPixel().x > regions.get(i).getTopCenterPixel().x && !lookLeft))
+				if (!lookBothWays && ((dash.getTopCenterPixel().x < regions.get(i).getTopCenterPixel().x && lookLeft)
+						|| (dash.getTopCenterPixel().x > regions.get(i).getTopCenterPixel().x && !lookLeft)))
 					continue;
 
 				double currentDistance = this.distance(dash.getBottomCenterPixel(), regions.get(i).getTopCenterPixel());
