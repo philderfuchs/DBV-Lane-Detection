@@ -15,8 +15,9 @@ import ij.process.ImageProcessor;
 
 public class Detect_Lanes implements PlugInFilter {
 
-	static final double regionSizeLowerThershold = 0.0;
-	static final double regionSizeUpperThershold = 0.3;
+	static final double regionSizeLowerThreshold = 0.0;
+	static final double regionSizeUpperThreshold = 0.05;
+	static final boolean expMode = true;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -139,31 +140,38 @@ public class Detect_Lanes implements PlugInFilter {
 	}
 
 	public void run(ImageProcessor ip) {
-		ImageProcessor expProcessor = ip.duplicate().exp();
-		ByteProcessor byteImageProcessor = (ByteProcessor) expProcessor.convertToByte(true);
+		ImageProcessor expProcessor = ip.duplicate();
+		
+		// Use exp() on spotty lanes
+		if (expMode)
+			expProcessor.exp();
+		
+		ByteProcessor byteImageProcessor = (ByteProcessor)expProcessor.convertToByte(true);
 
 		int roiOffsetX = 0;
-		int roiOffsetY = ip.getHeight() / 2;
+		int roiOffsetY = ip.getHeight() * 2 / 3;
 
-		Roi roi = new Roi(0, roiOffsetY, ip.getWidth() - roiOffsetX - 1, roiOffsetY - 1);
+		Roi roi = new Roi(0, roiOffsetY, ip.getWidth() - roiOffsetX - 1, ip.getHeight() - roiOffsetY - 1);
 		byteImageProcessor.setRoi(roi);
 
 		ImagePlus roiImage = new ImagePlus("Grayscale with ROI", byteImageProcessor.crop());
 		roiImage.show();
 
-		IJ.run("Canny Edge Detector", "Low threshold=[1.0] High threshold=[3.0] Normalize contrast=[true]");
+		IJ.run("Canny Edge Detector", "gaussian=2 low=2.5 high=7.5");
 		ImageProcessor roiImageProcessor = (ByteProcessor) roiImage.getProcessor();
 		roiImageProcessor.dilate();
 		roiImageProcessor.dilate();
+		roiImage.close();
 
 		// new ImagePlus("Dilated Edges", byteImageProcessor).show();
 
-		roiOffsetX += 12;
-		roiOffsetY += 12;
-		roi = new Roi(12, 12, roiImageProcessor.getWidth() - 24, roiImageProcessor.getHeight() - 24);
+		int edgeInset = 12;
+		roiOffsetX += edgeInset;
+		roiOffsetY += edgeInset;
+		roi = new Roi(edgeInset, edgeInset, roiImageProcessor.getWidth() - edgeInset * 2, roiImageProcessor.getHeight() - edgeInset * 2);
 		roiImageProcessor.setRoi(roi);
 		ByteProcessor cropped = (ByteProcessor) roiImageProcessor.crop();
-		new ImagePlus("Dilated Edges Cropped", cropped);// .show();
+		// new ImagePlus("Dilated Edges Cropped", cropped).show();
 
 		Region street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0);
 		if (street.pixels.size() == 0) {
@@ -171,13 +179,15 @@ public class Detect_Lanes implements PlugInFilter {
 			// Starting Backup Plan
 			street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0);
 		}
-		ImagePlus streetPlus = NewImage.createByteImage("Filled Region", cropped.getWidth(), cropped.getHeight(), 1,
+		ImagePlus streetPlus = NewImage.createByteImage("Detected Street", cropped.getWidth(), cropped.getHeight(), 1,
 				NewImage.FILL_WHITE);
 		ByteProcessor streetProcessor = (ByteProcessor) streetPlus.getProcessor();
 		for (Pixel p : street.pixels) {
-			streetProcessor.set(p.x, p.y, 0);
+			streetProcessor.set(p.x, p.y, 128);
 		}
-		// streetPlus.show();
+		
+		// Show asphalt
+		streetPlus.show();
 
 		Region leftLane = new Region();
 		Region rightLane = new Region();
@@ -287,8 +297,8 @@ public class Detect_Lanes implements PlugInFilter {
 			double mean = (double) sum / (double) r.pixels.size();
 			r.mean = mean;
 
-			if (r.pixels.size() > imageSize * regionSizeLowerThershold
-					&& r.pixels.size() < imageSize * regionSizeUpperThershold) {
+			if (r.pixels.size() > imageSize * regionSizeLowerThreshold
+					&& r.pixels.size() < imageSize * regionSizeUpperThreshold) {
 				filteredRegions.add(r);
 			}
 		}
