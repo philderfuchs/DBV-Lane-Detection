@@ -243,7 +243,7 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 
 		// // Show asphalt
-		// streetPlus.show();
+//		streetPlus.show();
 
 		Region leftLane = new Region();
 		Region rightLane = new Region();
@@ -256,10 +256,6 @@ public class Detect_Lanes implements PlugInFilter {
 		// top pixel
 		ArrayList<Region> regions = collectOtherRegions(streetProcessor);
 		regions = filterRegions(regions, streetProcessor, byteImageProcessor, roiOffsetX, roiOffsetY);
-
-		if (regions.size() == 0)
-			return true;
-
 		ArrayList<Lane> dashedLanes = extractDashedLanes(regions);
 		dashedLanes.add(new Lane(leftLane));
 		dashedLanes.add(new Lane(rightLane));
@@ -358,7 +354,9 @@ public class Detect_Lanes implements PlugInFilter {
 
 	private ArrayList<Lane> extractDashedLanes(ArrayList<Region> regions) {
 		ArrayList<Lane> dashedLanes = new ArrayList<Lane>();
-
+		if(regions.size() == 0)
+			return dashedLanes;
+		
 		dashedLanes.add(new Lane());
 		dashedLanes.get(dashedLanes.size() - 1).markings.add(regions.get(0));
 		Region dash = regions.get(0);
