@@ -37,14 +37,21 @@ public class Detect_Lanes implements PlugInFilter {
 			}
 		}
 	}
-	
+
 	enum LaneType {
 		EGO_LEFT, EGO_RIGHT, OTHER;
 	}
-	
+
 	class Lane {
 		ArrayList<Region> markings = new ArrayList();
 		LaneType type;
+
+		public Lane() {
+		}
+
+		public Lane(Region r) {
+			markings.add(r);
+		}
 	}
 
 	class Region implements Comparable<Region> {
@@ -151,14 +158,14 @@ public class Detect_Lanes implements PlugInFilter {
 		ImageProcessor expProcessor = ip.duplicate();
 		expProcessor.exp();
 
-		ByteProcessor byteImageProcessor = (ByteProcessor)expProcessor.convertToByte(true);
+		ByteProcessor byteImageProcessor = (ByteProcessor) expProcessor.convertToByte(true);
 
 		System.out.println("Starting.");
 
 		boolean success = processImage(ip, byteImageProcessor, true);
 		if (!success) {
 			System.out.println("Didn’t work, repeating without exp().");
-			success = processImage(ip, (ByteProcessor)ip.convertToByte(true), false);
+			success = processImage(ip, (ByteProcessor) ip.convertToByte(true), false);
 
 			if (!success) {
 				System.out.println("Failed. :(");
@@ -182,7 +189,7 @@ public class Detect_Lanes implements PlugInFilter {
 		System.out.print("Waiting on Canny Edge Detector ...");
 		IJ.run("Canny Edge Detector", "gaussian=2 low=2.5 high=7.5");
 		System.out.println(" has finished.");
-		ImageProcessor roiImageProcessor = (ByteProcessor)roiImage.getProcessor();
+		ImageProcessor roiImageProcessor = (ByteProcessor) roiImage.getProcessor();
 		roiImageProcessor.dilate();
 		roiImageProcessor.dilate();
 		roiImage.close();
@@ -192,20 +199,22 @@ public class Detect_Lanes implements PlugInFilter {
 		int edgeInset = 12;
 		roiOffsetX += edgeInset;
 		roiOffsetY += edgeInset;
-		roi = new Roi(edgeInset, edgeInset, roiImageProcessor.getWidth() - edgeInset * 2, roiImageProcessor.getHeight() - edgeInset * 2);
+		roi = new Roi(edgeInset, edgeInset, roiImageProcessor.getWidth() - edgeInset * 2,
+				roiImageProcessor.getHeight() - edgeInset * 2);
 		roiImageProcessor.setRoi(roi);
-		ByteProcessor cropped = (ByteProcessor)roiImageProcessor.crop();
+		ByteProcessor cropped = (ByteProcessor) roiImageProcessor.crop();
 		Region street = new Region();
 
 		int cutter = 20;
 		int loopCount = 0;
 		do {
-			System.out.println("Trying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ") + (expMode ? "in exp mode." : "in normal mode."));
+			System.out.println("Trying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ")
+					+ (expMode ? "in exp mode." : "in normal mode."));
 
 			if (expMode) {
 				roi = new Roi(0, cutter, cropped.getWidth() - 1, cropped.getHeight() - (cutter + 1));
 				cropped.setRoi(roi);
-				cropped = (ByteProcessor)cropped.crop();
+				cropped = (ByteProcessor) cropped.crop();
 				roiOffsetY += cutter;
 			}
 
@@ -240,7 +249,7 @@ public class Detect_Lanes implements PlugInFilter {
 		Region rightLane = new Region();
 
 		extractOuterLanes(street, streetProcessor, leftLane, rightLane);
-		drawLanes(ip, roiOffsetX, roiOffsetY, leftLane, rightLane);
+		//drawLanes(ip, roiOffsetX, roiOffsetY, leftLane, rightLane);
 
 		// get other regions
 		// regions come sorted from upper to lower positions of their respective
@@ -252,58 +261,91 @@ public class Detect_Lanes implements PlugInFilter {
 			return true;
 
 		ArrayList<Lane> dashedLanes = extractDashedLanes(regions);
-		
-		ip.setColor(Color.YELLOW);
+		dashedLanes.add(new Lane(leftLane));
+		dashedLanes.add(new Lane(rightLane));
 
+		categorizeLanes(streetProcessor, dashedLanes);
+		
+		int drawColor = 0;
 		// Draw dashed Lanes by connecting the dashes of each lane
-		for (Lane dashedLane : dashedLanes) {
-			for (int i = 0; i < dashedLane.markings.size(); i++) {
+		for (Lane lane : dashedLanes) {
+			if(lane.type == LaneType.EGO_LEFT) {
+				ip.setColor(Color.YELLOW);
+				drawColor = ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff);
+			} else if(lane.type == LaneType.EGO_RIGHT) {
+				ip.setColor(Color.GREEN);
+				drawColor = ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff);
+			} else if(lane.type == LaneType.OTHER) {
+				ip.setColor(new Color (255, 165, 0));
+				drawColor = ((255 & 0xff) << 16) + ((165 & 0xff) << 8) + (0 & 0xff);
+			}
+			for (int i = 0; i < lane.markings.size(); i++) {
 
 				// draw dash itself
-				for (Pixel p : dashedLane.markings.get(i).pixels) {
-					ip.set(p.x + roiOffsetX, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
+				for (Pixel p : lane.markings.get(i).pixels) {
+					ip.set(p.x + roiOffsetX, p.y + roiOffsetY, drawColor);
 				}
 
 				// draw connecting polygon from dash do next dash
-				if (i < dashedLane.markings.size() - 1) {
-					// for (int j = -5; j <= 5; j++) {
-					// ip.drawLine(dashedLane.get(i).getBottomCenterPixel().x +
-					// roiOffsetX + j,
-					// dashedLane.get(i).getBottomCenterPixel().y + roiOffsetY,
-					// dashedLane.get(i + 1).getTopCenterPixel().x + roiOffsetX
-					// + j,
-					// dashedLane.get(i + 1).getTopCenterPixel().y +
-					// roiOffsetY);
-					// }
-					ip.fillPolygon(new Polygon(new int[] { dashedLane.markings.get(i).firstPixelOfBottomRow.x + roiOffsetX,
-							dashedLane.markings.get(i + 1).firstPixelOfTopRow.x  + roiOffsetX, dashedLane.markings.get(i + 1).lastPixelOfTopRow.x + roiOffsetX,
-							dashedLane.markings.get(i).lastPixelOfBottomRow.x + roiOffsetX,
+				if (i < lane.markings.size() - 1) {
+					ip.fillPolygon(
+							new Polygon(new int[] { lane.markings.get(i).firstPixelOfBottomRow.x + roiOffsetX,
+									lane.markings.get(i + 1).firstPixelOfTopRow.x + roiOffsetX,
+									lane.markings.get(i + 1).lastPixelOfTopRow.x + roiOffsetX,
+									lane.markings.get(i).lastPixelOfBottomRow.x + roiOffsetX,
 
-					}, new int[] { dashedLane.markings.get(i).firstPixelOfBottomRow.y + roiOffsetY,
-							dashedLane.markings.get(i + 1).firstPixelOfTopRow.y + roiOffsetY, dashedLane.markings.get(i + 1).lastPixelOfTopRow.y + roiOffsetY,
-							dashedLane.markings.get(i).lastPixelOfBottomRow.y + roiOffsetY,
-					}, 4));
+							}, new int[] { lane.markings.get(i).firstPixelOfBottomRow.y + roiOffsetY, lane.markings.get(i + 1).firstPixelOfTopRow.y + roiOffsetY, lane.markings.get(i + 1).lastPixelOfTopRow.y + roiOffsetY, lane.markings.get(i).lastPixelOfBottomRow.y + roiOffsetY, }, 4));
 				} else {
-					//draw end of lane
-					double dY = dashedLane.markings.get(i).getBottomCenterPixel().y - dashedLane.markings.get(i).getTopCenterPixel().y;
-					double dX = dashedLane.markings.get(i).getBottomCenterPixel().x - dashedLane.markings.get(i).getTopCenterPixel().x;
+					// draw end of lane
+					double dY = lane.markings.get(i).getBottomCenterPixel().y
+							- lane.markings.get(i).getTopCenterPixel().y;
+					double dX = lane.markings.get(i).getBottomCenterPixel().x
+							- lane.markings.get(i).getTopCenterPixel().x;
 					double m = dY / dX;
-					double n = dashedLane.markings.get(i).getBottomCenterPixel().y - m * dashedLane.markings.get(i).getBottomCenterPixel().x;
+					double n = lane.markings.get(i).getBottomCenterPixel().y
+							- m * lane.markings.get(i).getBottomCenterPixel().x;
 
-					int targetX = (int) ((streetProcessor.getHeight()-1-n)/m);
-					int thickness = (dashedLane.markings.get(i).lastPixelOfBottomRow.x - dashedLane.markings.get(i).firstPixelOfBottomRow.x)/2;
+					int targetX = (int) ((streetProcessor.getHeight() - 1 - n) / m);
+					int thickness = (lane.markings.get(i).lastPixelOfBottomRow.x
+							- lane.markings.get(i).firstPixelOfBottomRow.x) / 2;
 
-					for(int j = -1 * thickness; j <= thickness; j++) {
-						ip.drawLine(dashedLane.markings.get(i).getBottomCenterPixel().x + roiOffsetX + j ,
-								dashedLane.markings.get(i).getBottomCenterPixel().y + roiOffsetY,
-								targetX + roiOffsetX + j,
-								streetProcessor.getHeight() -1 + roiOffsetY);
+					for (int j = -1 * thickness; j <= thickness; j++) {
+						ip.drawLine(lane.markings.get(i).getBottomCenterPixel().x + roiOffsetX + j,
+								lane.markings.get(i).getBottomCenterPixel().y + roiOffsetY,
+								targetX + roiOffsetX + j, streetProcessor.getHeight() - 1 + roiOffsetY);
 					}
 				}
 			}
 		}
 
 		return true;
+	}
+
+	private void categorizeLanes(ByteProcessor streetProcessor, ArrayList<Lane> dashedLanes) {
+		// find left egolane
+		Lane leftEgoLane = null;
+		Lane rightEgoLane = null;
+		int minDistanceLeft = Integer.MAX_VALUE;
+		int minDistanceRight = Integer.MAX_VALUE;
+		int currentDistance = 0;
+		int centerX = streetProcessor.getWidth()/2;
+		for (Lane l : dashedLanes) {
+			Region lowestRegion = l.markings.get(l.markings.size() - 1);
+			currentDistance = centerX - lowestRegion.pixels.get(lowestRegion.pixels.size() - 1).x;
+			if(currentDistance > 0 && currentDistance < minDistanceLeft) {
+				minDistanceLeft = currentDistance;
+				leftEgoLane = l;
+			}
+			if(currentDistance < 0 && Math.abs(currentDistance) < minDistanceRight) {
+				minDistanceRight = currentDistance;
+				rightEgoLane = l;
+			}
+		}
+		leftEgoLane.type = LaneType.EGO_LEFT;
+		rightEgoLane.type = LaneType.EGO_RIGHT;
+		for (Lane l : dashedLanes) {
+			if(l.type == null) l.type = LaneType.OTHER;
+		}
 	}
 
 	private ArrayList<Lane> extractDashedLanes(ArrayList<Region> regions) {
@@ -441,6 +483,8 @@ public class Detect_Lanes implements PlugInFilter {
 
 			lastPixel = p;
 		}
+		Collections.sort(leftLane.pixels);
+		Collections.sort(rightLane.pixels);
 	}
 
 	private void drawLanes(ImageProcessor ip, int roiOffsetX, int roiOffsetY, Region leftLane, Region rightLane) {
