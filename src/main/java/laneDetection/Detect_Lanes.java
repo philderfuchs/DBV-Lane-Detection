@@ -243,7 +243,7 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 
 		// // Show asphalt
-//		streetPlus.show();
+		// streetPlus.show();
 
 		Region leftLane = new Region();
 		Region rightLane = new Region();
@@ -257,8 +257,9 @@ public class Detect_Lanes implements PlugInFilter {
 		ArrayList<Region> regions = collectOtherRegions(streetProcessor);
 		regions = filterRegions(regions, streetProcessor, byteImageProcessor, roiOffsetX, roiOffsetY);
 		ArrayList<Lane> dashedLanes = extractDashedLanes(regions);
-		dashedLanes.add(new Lane(leftLane));
-		dashedLanes.add(new Lane(rightLane));
+		
+		if (leftLane.pixels.size() > 0)	dashedLanes.add(new Lane(leftLane));
+		if (rightLane.pixels.size() > 0) dashedLanes.add(new Lane(rightLane));
 
 		categorizeLanes(streetProcessor, dashedLanes);
 
@@ -335,6 +336,7 @@ public class Detect_Lanes implements PlugInFilter {
 		for (Lane l : dashedLanes) {
 			Region lowestRegion = l.markings.get(l.markings.size() - 1);
 			currentDistance = centerX - lowestRegion.pixels.get(lowestRegion.pixels.size() - 1).x;
+
 			if (currentDistance > 0 && currentDistance < minDistanceLeft) {
 				minDistanceLeft = currentDistance;
 				leftEgoLane = l;
@@ -354,9 +356,9 @@ public class Detect_Lanes implements PlugInFilter {
 
 	private ArrayList<Lane> extractDashedLanes(ArrayList<Region> regions) {
 		ArrayList<Lane> dashedLanes = new ArrayList<Lane>();
-		if(regions.size() == 0)
+		if (regions.size() == 0)
 			return dashedLanes;
-		
+
 		dashedLanes.add(new Lane());
 		dashedLanes.get(dashedLanes.size() - 1).markings.add(regions.get(0));
 		Region dash = regions.get(0);
