@@ -2,8 +2,22 @@ package laneDetection;
 
 import java.awt.Color;
 import java.awt.Polygon;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -219,12 +233,12 @@ public class Detect_Lanes implements PlugInFilter {
 			}
 
 			if (cropped.getHeight() > byteImageProcessor.getHeight() / 4) {
-				street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0);
+				street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 5, 0, 255);
 
 				if (street.pixels.size() == 0) {
 					// Filling of street failed.
 					// Starting Backup Plan
-					street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0);
+					street = this.fillFromSeed(cropped, cropped.getWidth() / 2, cropped.getHeight() - 10, 0, 255);
 
 					// If still failing, stop completely
 					if (street.pixels.size() == 0)
@@ -257,15 +271,83 @@ public class Detect_Lanes implements PlugInFilter {
 		ArrayList<Region> regions = collectOtherRegions(streetProcessor);
 		regions = filterRegions(regions, streetProcessor, byteImageProcessor, roiOffsetX, roiOffsetY);
 		ArrayList<Lane> dashedLanes = extractDashedLanes(regions);
-		
-		if (leftLane.pixels.size() > 0)	dashedLanes.add(new Lane(leftLane));
-		if (rightLane.pixels.size() > 0) dashedLanes.add(new Lane(rightLane));
+
+		if (leftLane.pixels.size() > 0)
+			dashedLanes.add(new Lane(leftLane));
+		if (rightLane.pixels.size() > 0)
+			dashedLanes.add(new Lane(rightLane));
 
 		categorizeLanes(streetProcessor, dashedLanes);
 
 		drawLanes(ip, roiOffsetX, roiOffsetY, streetProcessor, dashedLanes);
 
+		// export xml
+		ImagePlus xmlGuide = NewImage.createRGBImage("XML", ip.getWidth(), ip.getHeight(), 1, NewImage.FILL_WHITE);
+		ImageProcessor xmlGuideProcessor = xmlGuide.getProcessor();
+		drawLanes(xmlGuideProcessor, roiOffsetX, roiOffsetY, streetProcessor, dashedLanes);
+		xmlGuide.show();
+		this.exportXML(xmlGuideProcessor);
+
 		return true;
+	}
+
+	private void exportXML(ImageProcessor xmlGuideProcessor) {
+		int white = xmlGuideProcessor.get(0, 0);
+		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder docBuilder;
+
+		try {
+			docBuilder = docFactory.newDocumentBuilder();
+
+			// root elements
+			Document doc = docBuilder.newDocument();
+			Element objects = doc.createElement("objects");
+			doc.appendChild(objects);
+
+			outer: for (int y = 0; y < xmlGuideProcessor.getHeight(); y++) {
+				for (int x = 0; x < xmlGuideProcessor.getWidth(); x++) {
+					if (xmlGuideProcessor.get(x, y) != white) {
+						Region region = this.fillFromSeed(xmlGuideProcessor, x, y, xmlGuideProcessor.get(x, y), white);
+						System.out.println(region.pixels.size());
+						Element object = doc.createElement("object");
+						objects.appendChild(object);
+						Element info = doc.createElement("info");
+						object.appendChild(info);
+						Element shape = doc.createElement("shape");
+						shape.setAttribute("type", "points");
+						object.appendChild(shape);
+						for (Pixel p : region.pixels) {
+							Element point = doc.createElement("point");
+							Element xValue = doc.createElement("x");
+							xValue.appendChild(doc.createTextNode(String.valueOf(p.x)));
+							Element yValue = doc.createElement("y");
+							yValue.appendChild(doc.createTextNode(String.valueOf(p.y)));
+							point.appendChild(xValue);
+							point.appendChild(yValue);
+							shape.appendChild(point);
+						}
+						break outer;
+
+					}
+				}
+			}
+
+			TransformerFactory transformerFactory = TransformerFactory.newInstance();
+			Transformer transformer = transformerFactory.newTransformer();
+
+			DOMSource source = new DOMSource(doc);
+			StreamResult result = new StreamResult(new File(
+					"/Users/philippanders/Documents/MIM/DBV/Projekt/code/lane-detection/xml_results/test.xml"));
+			transformer.transform(source, result);
+		} catch (ParserConfigurationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (TransformerConfigurationException e) {
+			e.printStackTrace();
+		} catch (TransformerException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	private void drawLanes(ImageProcessor ip, int roiOffsetX, int roiOffsetY, ByteProcessor streetProcessor,
@@ -280,8 +362,8 @@ public class Detect_Lanes implements PlugInFilter {
 				ip.setColor(Color.GREEN);
 				drawColor = ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff);
 			} else if (lane.type == LaneType.OTHER) {
-				ip.setColor(new Color(255, 165, 0));
-				drawColor = ((255 & 0xff) << 16) + ((165 & 0xff) << 8) + (0 & 0xff);
+				ip.setColor(Color.ORANGE);
+				drawColor = ((255 & 0xff) << 16) + ((200 & 0xff) << 8) + (0 & 0xff);
 			}
 			for (int i = 0; i < lane.markings.size(); i++) {
 
@@ -460,7 +542,7 @@ public class Detect_Lanes implements PlugInFilter {
 		for (int y = 0; y < streetProcessor.getHeight(); y++) {
 			for (int x = 0; x < streetProcessor.getWidth(); x++) {
 				if (streetProcessor.get(x, y) == 255) {
-					Region region = this.fillFromSeed(streetProcessor, x, y, 255);
+					Region region = this.fillFromSeed(streetProcessor, x, y, 255, 0);
 					region.id = regionId++;
 					for (Pixel p : region.pixels) {
 						streetProcessor.set(p.x, p.y, 0);
@@ -525,15 +607,15 @@ public class Detect_Lanes implements PlugInFilter {
 	 * Region Filling Stuff *****************************************
 	 ****************************************************************/
 
-	ByteProcessor contourImage;
+	ImageProcessor contourImage;
 	ArrayList<Pixel> tempPixelList;
 
-	private Region fillFromSeed(ByteProcessor processor, int x, int y, int commonColor) {
-		contourImage = (ByteProcessor) processor.duplicate();
+	private Region fillFromSeed(ImageProcessor processor, int x, int y, int beforeColor, int afterColor) {
+		contourImage = processor.duplicate();
 		tempPixelList = new ArrayList<Pixel>();
 
-		if (processor.get(x, y) == commonColor) {
-			queueExpandPixel(x, y, commonColor);
+		if (processor.get(x, y) == beforeColor) {
+			queueExpandPixel(x, y, beforeColor, afterColor);
 		}
 
 		Region region = new Region();
@@ -543,7 +625,7 @@ public class Detect_Lanes implements PlugInFilter {
 		return region;
 	}
 
-	private void queueExpandPixel(int x, int y, int commonColor) {
+	private void queueExpandPixel(int x, int y, int commonColor, int afterColor) {
 		ArrayList<Pixel> queue = new ArrayList<Pixel>();
 		queue.add(new Pixel(x, y));
 		while (queue.size() > 0) {
@@ -553,7 +635,7 @@ public class Detect_Lanes implements PlugInFilter {
 				continue;
 			}
 			tempPixelList.add(new Pixel(p.x, p.y));
-			contourImage.set(p.x, p.y, 255 - commonColor);
+			contourImage.set(p.x, p.y, afterColor);
 			if (p.y - 1 >= 0) {
 				queue.add(new Pixel(p.x, p.y - 1));
 			}
