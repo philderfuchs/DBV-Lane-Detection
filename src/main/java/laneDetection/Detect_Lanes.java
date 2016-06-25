@@ -295,8 +295,8 @@ public class Detect_Lanes implements PlugInFilter {
 				NewImage.FILL_WHITE);
 		ImageProcessor xmlGuideProcessor = xmlGuide.getProcessor();
 		drawLanes(xmlGuideProcessor, roiOffsetX, roiOffsetY, streetProcessor, dashedLanes);
-		// this.exportXML(xmlGuideProcessor);
-		// xmlGuide.show();
+		this.exportXML(xmlGuideProcessor);
+		xmlGuide.show();
 
 		return true;
 	}
@@ -314,9 +314,10 @@ public class Detect_Lanes implements PlugInFilter {
 			Element objects = doc.createElement("objects");
 			doc.appendChild(objects);
 
-			outer: for (int y = 0; y < xmlGuideProcessor.getHeight(); y++) {
+			for (int y = 0; y < xmlGuideProcessor.getHeight(); y++) {
 				for (int x = 0; x < xmlGuideProcessor.getWidth(); x++) {
 					if (xmlGuideProcessor.get(x, y) != background) {
+						System.out.println("Starting new Region");
 						Region region = this.fillFromSeed(xmlGuideProcessor, x, y, xmlGuideProcessor.get(x, y),
 								background);
 						Element object = doc.createElement("object");
@@ -337,8 +338,6 @@ public class Detect_Lanes implements PlugInFilter {
 							point.appendChild(yValue);
 							shape.appendChild(point);
 						}
-						break outer;
-
 					}
 				}
 			}
@@ -368,21 +367,18 @@ public class Detect_Lanes implements PlugInFilter {
 		for (Lane lane : dashedLanes) {
 			if (lane.laneType == LaneType.EGO_LEFT) {
 				ip.setColor(Color.YELLOW);
-				drawColor = ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff);
 			} else if (lane.laneType == LaneType.EGO_RIGHT) {
 				ip.setColor(Color.GREEN);
-				drawColor = ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff);
 			} else if (lane.laneType == LaneType.OTHER) {
 				ip.setColor(Color.ORANGE);
-				drawColor = ((255 & 0xff) << 16) + ((200 & 0xff) << 8) + (0 & 0xff);
 			}
 			if (lane.drawtype == DrawType.INNER) {
 
 				for (int i = 0; i < lane.markings.size(); i++) {
 
-					// draw dash itself
+					// draw marking itself
 					for (Pixel p : lane.markings.get(i).pixels) {
-						ip.set(p.x + roiOffsetX, p.y + roiOffsetY, drawColor);
+						ip.drawPixel(p.x + roiOffsetX, p.y + roiOffsetY);
 					}
 
 					// draw connecting polygon from dash do next dash
@@ -417,10 +413,10 @@ public class Detect_Lanes implements PlugInFilter {
 				}
 			} else if (lane.drawtype == DrawType.OUTER) {
 				Region r = lane.markings.get(0);
-				int thickness = 10;
+				int thickness = 12;
 				int leftend = lane.laneType == LaneType.EGO_LEFT ? -1 * thickness : 0;
 				int rightend = lane.laneType == LaneType.EGO_LEFT ? 0 : thickness;
-				for (int i = 1; i < r.pixels.size() - 1; i++) {
+				for (int i = 3; i < r.pixels.size() - 1; i++) {
 					for (int j = leftend; j <= rightend; j++) {
 						ip.drawLine(r.pixels.get(i).x + j + roiOffsetX, r.pixels.get(i).y + roiOffsetY,
 								r.pixels.get(i + 1).x + j + roiOffsetX, r.pixels.get(i + 1).y + roiOffsetY);
