@@ -264,7 +264,7 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 
 		// // Show asphalt
-		streetPlus.show();
+		// streetPlus.show();
 
 		Region leftRegion = new Region();
 		Region rightRegion = new Region();
@@ -296,7 +296,7 @@ public class Detect_Lanes implements PlugInFilter {
 		ImageProcessor xmlGuideProcessor = xmlGuide.getProcessor();
 		drawLanes(xmlGuideProcessor, roiOffsetX, roiOffsetY, streetProcessor, dashedLanes);
 		this.exportXML(xmlGuideProcessor);
-		xmlGuide.show();
+		// xmlGuide.show();
 
 		return true;
 	}
