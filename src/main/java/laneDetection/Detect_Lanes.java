@@ -257,7 +257,7 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 
 		// // Show asphalt
-		// streetPlus.show();
+		streetPlus.show();
 
 		Region leftLane = new Region();
 		Region rightLane = new Region();
@@ -282,17 +282,18 @@ public class Detect_Lanes implements PlugInFilter {
 		drawLanes(ip, roiOffsetX, roiOffsetY, streetProcessor, dashedLanes);
 
 		// export xml
-		ImagePlus xmlGuide = NewImage.createRGBImage("XML", ip.getWidth(), ip.getHeight(), 1, NewImage.FILL_WHITE);
+		ImagePlus xmlGuide = NewImage.createRGBImage("XML-Guide", ip.getWidth(), ip.getHeight(), 1,
+				NewImage.FILL_WHITE);
 		ImageProcessor xmlGuideProcessor = xmlGuide.getProcessor();
 		drawLanes(xmlGuideProcessor, roiOffsetX, roiOffsetY, streetProcessor, dashedLanes);
-		xmlGuide.show();
 		this.exportXML(xmlGuideProcessor);
+		xmlGuide.show();
 
 		return true;
 	}
 
 	private void exportXML(ImageProcessor xmlGuideProcessor) {
-		int white = xmlGuideProcessor.get(0, 0);
+		int background = xmlGuideProcessor.get(0, 0);
 		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
 		DocumentBuilder docBuilder;
 
@@ -306,9 +307,9 @@ public class Detect_Lanes implements PlugInFilter {
 
 			outer: for (int y = 0; y < xmlGuideProcessor.getHeight(); y++) {
 				for (int x = 0; x < xmlGuideProcessor.getWidth(); x++) {
-					if (xmlGuideProcessor.get(x, y) != white) {
-						Region region = this.fillFromSeed(xmlGuideProcessor, x, y, xmlGuideProcessor.get(x, y), white);
-						System.out.println(region.pixels.size());
+					if (xmlGuideProcessor.get(x, y) != background) {
+						Region region = this.fillFromSeed(xmlGuideProcessor, x, y, xmlGuideProcessor.get(x, y),
+								background);
 						Element object = doc.createElement("object");
 						objects.appendChild(object);
 						Element info = doc.createElement("info");
@@ -317,6 +318,7 @@ public class Detect_Lanes implements PlugInFilter {
 						shape.setAttribute("type", "points");
 						object.appendChild(shape);
 						for (Pixel p : region.pixels) {
+							xmlGuideProcessor.set(p.x, p.y, background);
 							Element point = doc.createElement("point");
 							Element xValue = doc.createElement("x");
 							xValue.appendChild(doc.createTextNode(String.valueOf(p.x)));
@@ -565,18 +567,23 @@ public class Detect_Lanes implements PlugInFilter {
 			if (p.y != currentY) {
 				currentY = p.y;
 				if (p.x != 0)
-					for (int i = -14; i <= 0; i++) {
-						if (p.x + i < 0)
-							continue;
-						leftLane.pixels.add(new Pixel(p.x + i, p.y));
+					for (int j = -3; j <= 3; j++) {
+						for (int i = -14; i <= 0; i++) {
+							if (p.x + i < 0 || p.y + j < 0 || p.y + j > streetProcessor.getHeight() - 1)
+								continue;
+							leftLane.pixels.add(new Pixel(p.x + i, p.y + j));
+						}
 					}
 				// leftLane.pixels.add(p);
 				if (lastPixel != null && lastPixel.x != streetProcessor.getWidth() - 1) {
 					// rightLane.pixels.add(lastPixel);
-					for (int i = 0; i <= 14; i++) {
-						if (lastPixel.x + i > streetProcessor.getWidth() - 1)
-							continue;
-						rightLane.pixels.add(new Pixel(lastPixel.x + i, lastPixel.y));
+					for (int j = -3; j <= 3; j++) {
+						for (int i = 0; i <= 14; i++) {
+							if (lastPixel.x + i > streetProcessor.getWidth() - 1 || p.y + j < 0
+									|| p.y + j > streetProcessor.getHeight() - 1)
+								continue;
+							rightLane.pixels.add(new Pixel(lastPixel.x + i, lastPixel.y + j));
+						}
 					}
 				}
 			}
