@@ -324,7 +324,11 @@ public class Detect_Lanes implements PlugInFilter {
 						objects.appendChild(object);
 						Element info = doc.createElement("info");
 						object.appendChild(info);
+						Element category = doc.createElement("category");
+						category.setAttribute("confidence", "1.0");
+						category.appendChild(doc.createTextNode("road_mark"));
 						Element booleanAttribute = doc.createElement("booleanAttribute");
+						info.appendChild(category);
 						// categorize lane
 						if (xmlGuideProcessor.get(x, y) == ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff)) {
 							booleanAttribute.appendChild(doc.createTextNode("leftMark"));
