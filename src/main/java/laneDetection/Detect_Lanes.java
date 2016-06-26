@@ -317,16 +317,27 @@ public class Detect_Lanes implements PlugInFilter {
 			for (int y = 0; y < xmlGuideProcessor.getHeight(); y++) {
 				for (int x = 0; x < xmlGuideProcessor.getWidth(); x++) {
 					if (xmlGuideProcessor.get(x, y) != background) {
-						System.out.println("Starting new Region");
+
 						Region region = this.fillFromSeed(xmlGuideProcessor, x, y, xmlGuideProcessor.get(x, y),
 								background);
 						Element object = doc.createElement("object");
 						objects.appendChild(object);
 						Element info = doc.createElement("info");
 						object.appendChild(info);
+						Element booleanAttribute = doc.createElement("booleanAttribute");
+						// categorize lane
+						if (xmlGuideProcessor.get(x, y) == ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff)) {
+							booleanAttribute.appendChild(doc.createTextNode("leftMark"));
+						} else if (xmlGuideProcessor.get(x, y) == ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff)) {
+							booleanAttribute.appendChild(doc.createTextNode("rightMark"));
+						} else {
+							booleanAttribute.appendChild(doc.createTextNode("otherMark"));
+						}
+						info.appendChild(booleanAttribute);
 						Element shape = doc.createElement("shape");
 						shape.setAttribute("type", "points");
 						object.appendChild(shape);
+						
 						for (Pixel p : region.pixels) {
 							xmlGuideProcessor.set(p.x, p.y, background);
 							Element point = doc.createElement("point");
@@ -366,11 +377,11 @@ public class Detect_Lanes implements PlugInFilter {
 		// Draw dashed Lanes by connecting the dashes of each lane
 		for (Lane lane : dashedLanes) {
 			if (lane.laneType == LaneType.EGO_LEFT) {
-				ip.setColor(Color.YELLOW);
+				ip.setColor(((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
 			} else if (lane.laneType == LaneType.EGO_RIGHT) {
-				ip.setColor(Color.GREEN);
+				ip.setColor(((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff));
 			} else if (lane.laneType == LaneType.OTHER) {
-				ip.setColor(Color.ORANGE);
+				ip.setColor(((255 & 0xff) << 16) + ((160 & 0xff) << 8) + (0 & 0xff));
 			}
 			if (lane.drawtype == DrawType.INNER) {
 
@@ -585,27 +596,11 @@ public class Detect_Lanes implements PlugInFilter {
 			if (p.y != currentY) {
 				currentY = p.y;
 				if (p.x != 0) {
-					// for (int j = -3; j <= 3; j++) {
-					// for (int i = -14; i <= 0; i++) {
-					// if (p.x + i < 0 || p.y + j < 0 || p.y + j >
-					// streetProcessor.getHeight() - 1)
-					// continue;
 					leftLane.pixels.add(new Pixel(p.x, p.y));
 				}
-				// }
-				// }
-				// leftLane.pixels.add(p);
+
 				if (lastPixel != null && lastPixel.x != streetProcessor.getWidth() - 1) {
-					// rightLane.pixels.add(lastPixel);
-					// for (int j = -3; j <= 3; j++) {
-					// for (int i = 0; i <= 14; i++) {
-					// if (lastPixel.x + i > streetProcessor.getWidth() - 1 ||
-					// p.y + j < 0
-					// || p.y + j > streetProcessor.getHeight() - 1)
-					// continue;
 					rightLane.pixels.add(new Pixel(lastPixel.x, lastPixel.y));
-					// }
-					// }
 				}
 			}
 
@@ -614,22 +609,6 @@ public class Detect_Lanes implements PlugInFilter {
 		Collections.sort(leftLane.pixels);
 		Collections.sort(rightLane.pixels);
 	}
-
-	// private void drawLanes(ImageProcessor ip, int roiOffsetX, int roiOffsetY,
-	// Region leftLane, Region rightLane) {
-	// for (Pixel p : leftLane.pixels) {
-	// for (int i = -10; i <= 0; i++)
-	// ip.set(p.x + roiOffsetX + i, p.y + roiOffsetY, ((255 & 0xff) << 16) + ((0
-	// & 0xff) << 8) + (0 & 0xff));
-	//
-	// }
-	//
-	// for (Pixel p : rightLane.pixels) {
-	// for (int i = 0; i <= 10; i++)
-	// ip.set(p.x + roiOffsetX + i, p.y + roiOffsetY, ((0 & 0xff) << 16) + ((255
-	// & 0xff) << 8) + (0 & 0xff));
-	// }
-	// }
 
 	/****************************************************************
 	 * Region Filling Stuff *****************************************
