@@ -39,6 +39,10 @@ public class Detect_Lanes implements PlugIn {
 	private static String inputPath;
 	private static String outputPath;
 
+	private static String cannyGaussian = "2";
+	private static String cannyLow = "2.5";
+	private static String cannyHigh = "7.5";
+
 	class Pixel implements Comparable<Pixel> {
 		int x;
 		int y;
@@ -202,14 +206,20 @@ public class Detect_Lanes implements PlugIn {
 			if (param[0].equals("u")) {
 				regionSizeUpperThreshold = Double.parseDouble(param[1].trim());
 			}
+			if (param[0].equals("g")) {
+				cannyGaussian = param[1].trim();
+			}
+			if (param[0].equals("c")) {
+				cannyLow = param[1].trim();
+			}
+			if (param[0].equals("C")) {
+				cannyHigh = param[1].trim();
+			}
 		}
-		System.out.println(regionSizeLowerThreshold);
-		System.out.println(regionSizeUpperThreshold);
 	}
 
 	public void run(String args) {
 		this.extractArguments(Macro.getOptions());
-		System.out.println(inputPath);
 		new Opener().open(inputPath);
 		ImagePlus plus = IJ.getImage();
 		ImageProcessor ip = plus.getProcessor();
@@ -248,7 +258,7 @@ public class Detect_Lanes implements PlugIn {
 		roiImage.show();
 
 		System.out.print("Waiting on Canny Edge Detector ...");
-		IJ.run("Canny Edge Detector", "gaussian=2 low=2.5 high=7.5");
+		IJ.run("Canny Edge Detector", "gaussian=" + cannyGaussian + " low=" + cannyLow + " high=" + cannyHigh);
 		System.out.println(" has finished.");
 		ImageProcessor roiImageProcessor = (ByteProcessor) roiImage.getProcessor();
 		roiImageProcessor.dilate();
@@ -329,7 +339,7 @@ public class Detect_Lanes implements PlugIn {
 		categorizeLanes(streetProcessor, dashedLanes);
 
 		drawLanes(ip, roiOffsetX, roiOffsetY, streetProcessor, dashedLanes);
-		
+
 		// export xml
 		ImagePlus xmlGuide = NewImage.createRGBImage("XML-Guide", ip.getWidth(), ip.getHeight(), 1,
 				NewImage.FILL_WHITE);
