@@ -45,6 +45,7 @@ public class Detect_Lanes implements PlugIn {
 	private static String cannyHigh = "7.5";
 
 	private static boolean cancelExpMode = false;
+	private static boolean verbose = false;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -224,6 +225,15 @@ public class Detect_Lanes implements PlugIn {
 			if (param[0].equals("e")) {
 				cancelExpMode = true;
 			}
+			if (param[0].equals("v")) {
+				verbose = true;
+			}
+			if (param[0].equals("V")) {
+				if (param.length == 1)
+					System.out.println("Version number unchanged.");
+				else
+					System.out.println("Version number set to: " + param[1]);
+			}
 		}
 
 		return true;
@@ -270,7 +280,7 @@ public class Detect_Lanes implements PlugIn {
 			success = processImage(ip, byteImageProcessor, true);
 		}
 		if (!success) {
-			System.out.println("Trying without exp().");
+			if (verbose) System.out.println("Trying without exp().");
 			success = processImage(ip, (ByteProcessor) ip.convertToByte(true), false);
 
 			if (!success) {
@@ -295,9 +305,9 @@ public class Detect_Lanes implements PlugIn {
 		ImagePlus roiImage = new ImagePlus("Grayscale with ROI", byteImageProcessor.crop());
 		roiImage.show();
 
-		System.out.print("Waiting on Canny Edge Detector ...");
+		if (verbose) System.out.print("Waiting on Canny Edge Detector ...");
 		IJ.run("Canny Edge Detector", "gaussian=" + cannyGaussian + " low=" + cannyLow + " high=" + cannyHigh);
-		System.out.println(" has finished.");
+		if (verbose) System.out.println(" has finished.");
 		ImageProcessor roiImageProcessor = (ByteProcessor) roiImage.getProcessor();
 		roiImageProcessor.dilate();
 		roiImageProcessor.dilate();
@@ -317,7 +327,7 @@ public class Detect_Lanes implements PlugIn {
 		int cutter = 20;
 		int loopCount = 0;
 		do {
-			System.out.println("Trying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ")
+			if (verbose) System.out.println("Trying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ")
 					+ (expMode ? "in exp mode." : "in normal mode."));
 
 			if (expMode) {
