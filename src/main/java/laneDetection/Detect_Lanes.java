@@ -24,14 +24,18 @@ import ij.ImagePlus;
 import ij.Macro;
 import ij.gui.NewImage;
 import ij.gui.Roi;
+import ij.io.Opener;
+import ij.plugin.PlugIn;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
-public class Detect_Lanes implements PlugInFilter {
+public class Detect_Lanes implements PlugIn {
 
 	static final double regionSizeLowerThreshold = 0.0;
 	static final double regionSizeUpperThreshold = 0.1;
+
+	private static String inputFile;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -172,11 +176,7 @@ public class Detect_Lanes implements PlugInFilter {
 		}
 	}
 
-	public int setup(String arg, ImagePlus imp) {
-		return DOES_ALL;
-	}
-	
-	public void extractArguments (String args) {
+	public void extractArguments(String args) {
 		String[] splArgs = args.split("[ ][-]");
 		// remove starting dash
 		for (int i = 0; i < splArgs.length; i++) {
@@ -185,14 +185,22 @@ public class Detect_Lanes implements PlugInFilter {
 			}
 		}
 		for (String s : splArgs) {
-			System.out.println(s);
+			String[] param = s.replaceFirst("\\s", "HuRz").split("HuRz");
+
+			if (param[0].equals("i")) {
+				// inputfile
+				inputFile = param[1].replaceAll("\\s", "\\ ").trim();
+			}
 		}
-		
+
 	}
 
-	public void run(ImageProcessor ip) {
+	public void run(String args) {
 		this.extractArguments(Macro.getOptions());
-		
+		new Opener().open(inputFile);
+		ImagePlus plus = IJ.getImage();
+		ImageProcessor ip = plus.getProcessor();
+
 		ImageProcessor expProcessor = ip.duplicate();
 		expProcessor.exp();
 
@@ -210,6 +218,7 @@ public class Detect_Lanes implements PlugInFilter {
 				return;
 			}
 		}
+		plus.updateAndDraw();
 
 		System.out.println("Done.");
 	}
@@ -306,7 +315,7 @@ public class Detect_Lanes implements PlugInFilter {
 		categorizeLanes(streetProcessor, dashedLanes);
 
 		drawLanes(ip, roiOffsetX, roiOffsetY, streetProcessor, dashedLanes);
-
+		
 		// export xml
 		ImagePlus xmlGuide = NewImage.createRGBImage("XML-Guide", ip.getWidth(), ip.getHeight(), 1,
 				NewImage.FILL_WHITE);
@@ -349,7 +358,8 @@ public class Detect_Lanes implements PlugInFilter {
 						// categorize lane
 						if (xmlGuideProcessor.get(x, y) == ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff)) {
 							booleanAttribute.appendChild(doc.createTextNode("leftMark"));
-						} else if (xmlGuideProcessor.get(x, y) == ((0 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff)) {
+						} else if (xmlGuideProcessor.get(x, y) == ((0 & 0xff) << 16) + ((255 & 0xff) << 8)
+								+ (0 & 0xff)) {
 							booleanAttribute.appendChild(doc.createTextNode("rightMark"));
 						} else {
 							booleanAttribute.appendChild(doc.createTextNode("otherMark"));
@@ -358,7 +368,7 @@ public class Detect_Lanes implements PlugInFilter {
 						Element shape = doc.createElement("shape");
 						shape.setAttribute("type", "points");
 						object.appendChild(shape);
-						
+
 						for (Pixel p : region.pixels) {
 							xmlGuideProcessor.set(p.x, p.y, background);
 							Element point = doc.createElement("point");
@@ -394,7 +404,6 @@ public class Detect_Lanes implements PlugInFilter {
 
 	private void drawLanes(ImageProcessor ip, int roiOffsetX, int roiOffsetY, ByteProcessor streetProcessor,
 			ArrayList<Lane> dashedLanes) {
-		int drawColor = 0;
 		// Draw dashed Lanes by connecting the dashes of each lane
 		for (Lane lane : dashedLanes) {
 			if (lane.laneType == LaneType.EGO_LEFT) {
