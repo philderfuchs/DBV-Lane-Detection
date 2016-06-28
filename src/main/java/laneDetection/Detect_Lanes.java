@@ -284,7 +284,7 @@ public class Detect_Lanes implements PlugIn {
 			success = processImage(ip, byteImageProcessor, true);
 		}
 		if (!success) {
-			if (verbose) System.out.println("Trying without exp().");
+			if (verbose) System.out.println("\nTrying without exp().");
 			success = processImage(ip, (ByteProcessor) ip.convertToByte(true), false);
 
 			if (!success) {
@@ -296,7 +296,7 @@ public class Detect_Lanes implements PlugIn {
 
 		new FileSaver(plus).saveAsPng(outputPath);
 
-		System.out.println("Done.");
+		System.out.println("\nDone.");
 	}
 
 	boolean processImage(ImageProcessor ip, ByteProcessor byteImageProcessor, boolean expMode) {
@@ -331,7 +331,7 @@ public class Detect_Lanes implements PlugIn {
 		int cutter = 20;
 		int loopCount = 0;
 		do {
-			if (verbose) System.out.println("Trying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ")
+			if (verbose) System.out.print("\rTrying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ")
 					+ (expMode ? "in exp mode." : "in normal mode."));
 
 			if (expMode) {
@@ -413,8 +413,26 @@ public class Detect_Lanes implements PlugIn {
 
 			// root elements
 			Document doc = docBuilder.newDocument();
+			Element video = doc.createElement("video");
+			doc.appendChild(video);
+			Element videoInfo = doc.createElement("info");
+			video.appendChild(videoInfo);
+			Element file = doc.createElement("info");
+			file.setAttribute("type", "file");
+			file.appendChild(doc.createTextNode(inputPath));
+			videoInfo.appendChild(file);
+			Element name = doc.createElement("name");
+			name.appendChild(doc.createTextNode("EgoLane"));
+			videoInfo.appendChild(name);
+			Element description = doc.createElement("description");
+			description.appendChild(doc.createTextNode("EgoLane-Aufgabe"));
+			videoInfo.appendChild(description);
+			Element frames = doc.createElement("frames");
+			video.appendChild(frames);
+			Element frame = doc.createElement("frame");
+			frames.appendChild(frame);
 			Element objects = doc.createElement("objects");
-			doc.appendChild(objects);
+			frame.appendChild(objects);
 
 			for (int y = 0; y < xmlGuideProcessor.getHeight(); y++) {
 				for (int x = 0; x < xmlGuideProcessor.getWidth(); x++) {
@@ -430,17 +448,17 @@ public class Detect_Lanes implements PlugIn {
 						category.setAttribute("confidence", "1.0");
 						category.appendChild(doc.createTextNode("road_mark"));
 						Element booleanAttribute = doc.createElement("booleanAttribute");
+						booleanAttribute.setAttribute("key", "leftMark");
 						info.appendChild(category);
 						// categorize lane
 						if (xmlGuideProcessor.get(x, y) == ((255 & 0xff) << 16) + ((255 & 0xff) << 8) + (0 & 0xff)) {
-							booleanAttribute.appendChild(doc.createTextNode("leftMark"));
+							booleanAttribute.appendChild(doc.createTextNode("true"));
+							info.appendChild(booleanAttribute);
 						} else if (xmlGuideProcessor.get(x, y) == ((0 & 0xff) << 16) + ((255 & 0xff) << 8)
 								+ (0 & 0xff)) {
-							booleanAttribute.appendChild(doc.createTextNode("rightMark"));
-						} else {
-							booleanAttribute.appendChild(doc.createTextNode("otherMark"));
+									booleanAttribute.appendChild(doc.createTextNode("false"));
+									info.appendChild(booleanAttribute);
 						}
-						info.appendChild(booleanAttribute);
 						Element shape = doc.createElement("shape");
 						shape.setAttribute("type", "points");
 						object.appendChild(shape);
