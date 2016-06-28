@@ -6,7 +6,7 @@
 Das Canny Edge Detection Plugin muss im ImageJ-Pluginverzeichnis installiert werden (https://imagej.nih.gov/ij/plugins/canny/index.html).
 Das Lane Detection Plugin muss unter Pfad/zu/ImageJ/plugins/laneDetection installiert werden.
 
-###- Nutzung
+### Nutzung
 Das Plugin kann über die Kommandozeile mit folgendem Befehl aus dem Verzeichnis der `ij.jar` heraus aufgerufen werden:
 
 	java -jar ij.jar -ijpath Pfad/zu/ImageJ -eval 'run("Detect Lanes",
