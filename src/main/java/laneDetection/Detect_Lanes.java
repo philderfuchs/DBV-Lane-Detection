@@ -33,8 +33,8 @@ import ij.process.ImageProcessor;
 
 public class Detect_Lanes implements PlugIn {
 
-	static final double regionSizeLowerThreshold = 0.0;
-	static final double regionSizeUpperThreshold = 0.1;
+	private static double regionSizeLowerThreshold = 0.0;
+	private static double regionSizeUpperThreshold = 0.1;
 
 	private static String inputPath;
 	private static String outputPath;
@@ -196,13 +196,20 @@ public class Detect_Lanes implements PlugIn {
 			if (param[0].equals("o")) {
 				outputPath = param[1].replaceAll("\\s", "\\ ").trim();
 			}
-
+			if (param[0].equals("l")) {
+				regionSizeLowerThreshold = Double.parseDouble(param[1].trim());
+			}
+			if (param[0].equals("u")) {
+				regionSizeUpperThreshold = Double.parseDouble(param[1].trim());
+			}
 		}
-
+		System.out.println(regionSizeLowerThreshold);
+		System.out.println(regionSizeUpperThreshold);
 	}
 
 	public void run(String args) {
 		this.extractArguments(Macro.getOptions());
+		System.out.println(inputPath);
 		new Opener().open(inputPath);
 		ImagePlus plus = IJ.getImage();
 		ImageProcessor ip = plus.getProcessor();
