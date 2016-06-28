@@ -24,6 +24,7 @@ import ij.ImagePlus;
 import ij.Macro;
 import ij.gui.NewImage;
 import ij.gui.Roi;
+import ij.io.FileSaver;
 import ij.io.Opener;
 import ij.plugin.PlugIn;
 import ij.plugin.filter.PlugInFilter;
@@ -35,7 +36,8 @@ public class Detect_Lanes implements PlugIn {
 	static final double regionSizeLowerThreshold = 0.0;
 	static final double regionSizeUpperThreshold = 0.1;
 
-	private static String inputFile;
+	private static String inputPath;
+	private static String outputPath;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -189,15 +191,19 @@ public class Detect_Lanes implements PlugIn {
 
 			if (param[0].equals("i")) {
 				// inputfile
-				inputFile = param[1].replaceAll("\\s", "\\ ").trim();
+				inputPath = param[1].replaceAll("\\s", "\\ ").trim();
 			}
+			if (param[0].equals("o")) {
+				outputPath = param[1].replaceAll("\\s", "\\ ").trim();
+			}
+
 		}
 
 	}
 
 	public void run(String args) {
 		this.extractArguments(Macro.getOptions());
-		new Opener().open(inputFile);
+		new Opener().open(inputPath);
 		ImagePlus plus = IJ.getImage();
 		ImageProcessor ip = plus.getProcessor();
 
@@ -219,6 +225,7 @@ public class Detect_Lanes implements PlugIn {
 			}
 		}
 		plus.updateAndDraw();
+		new FileSaver(plus).saveAsPng(outputPath);
 
 		System.out.println("Done.");
 	}
