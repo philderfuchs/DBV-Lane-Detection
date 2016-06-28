@@ -43,6 +43,8 @@ public class Detect_Lanes implements PlugIn {
 	private static String cannyLow = "2.5";
 	private static String cannyHigh = "7.5";
 
+	private static boolean cancelExpMode = false;
+
 	class Pixel implements Comparable<Pixel> {
 		int x;
 		int y;
@@ -215,6 +217,9 @@ public class Detect_Lanes implements PlugIn {
 			if (param[0].equals("C")) {
 				cannyHigh = param[1].trim();
 			}
+			if (param[0].equals("e")) {
+				cancelExpMode = true;
+			}
 		}
 	}
 
@@ -231,9 +236,13 @@ public class Detect_Lanes implements PlugIn {
 
 		System.out.println("Starting.");
 
-		boolean success = processImage(ip, byteImageProcessor, true);
+		boolean success = false;
+
+		if (!cancelExpMode) {
+			success = processImage(ip, byteImageProcessor, true);
+		}
 		if (!success) {
-			System.out.println("Didn’t work, repeating without exp().");
+			System.out.println("Trying without exp().");
 			success = processImage(ip, (ByteProcessor) ip.convertToByte(true), false);
 
 			if (!success) {
