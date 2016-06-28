@@ -27,7 +27,6 @@ import ij.gui.Roi;
 import ij.io.FileSaver;
 import ij.io.Opener;
 import ij.plugin.PlugIn;
-import ij.plugin.filter.PlugInFilter;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
@@ -35,9 +34,11 @@ public class Detect_Lanes implements PlugIn {
 
 	private static double regionSizeLowerThreshold = 0.0;
 	private static double regionSizeUpperThreshold = 0.1;
+	static final String fileNameExtension = "_Lane";
 
 	private static String inputPath;
 	private static String outputPath;
+	private static String xmlPath;
 
 	private static String cannyGaussian = "2";
 	private static String cannyLow = "2.5";
@@ -184,7 +185,10 @@ public class Detect_Lanes implements PlugIn {
 		}
 	}
 
-	public void extractArguments(String args) {
+	public boolean extractArguments(String args) {
+		if (args == null)
+			return false;
+		
 		String[] splArgs = args.split("[ ][-]");
 		// remove starting dash
 		for (int i = 0; i < splArgs.length; i++) {
@@ -221,11 +225,30 @@ public class Detect_Lanes implements PlugIn {
 				cancelExpMode = true;
 			}
 		}
+
+		return true;
 	}
 
 	public void run(String args) {
-		this.extractArguments(Macro.getOptions());
+		boolean foundArguments = this.extractArguments(Macro.getOptions());
+		if (!foundArguments)
+			return;
+		
+		if (inputPath == null) {
+			System.err.println("No input file.");
+			return;
+		}
+			
 		new Opener().open(inputPath);
+		
+		if (outputPath == null) {
+			int fileExtensionIndex = inputPath.lastIndexOf(".");
+			String pathString = inputPath.substring(0, fileExtensionIndex);
+			String fileString = inputPath.substring(fileExtensionIndex);
+			outputPath = pathString.concat(fileNameExtension).concat(fileString);
+			xmlPath = pathString.concat(fileNameExtension).concat(".xml");
+		}
+		
 		ImagePlus plus = IJ.getImage();
 		ImageProcessor ip = plus.getProcessor();
 
@@ -246,13 +269,14 @@ public class Detect_Lanes implements PlugIn {
 			success = processImage(ip, (ByteProcessor) ip.convertToByte(true), false);
 
 			if (!success) {
-				System.out.println("Failed. :(");
+				System.err.println("Failed. :(");
 				return;
 			}
 		}
 		plus.updateAndDraw();
+		
 		new FileSaver(plus).saveAsPng(outputPath);
-
+		
 		System.out.println("Done.");
 	}
 
@@ -422,7 +446,7 @@ public class Detect_Lanes implements PlugIn {
 
 			DOMSource source = new DOMSource(doc);
 			StreamResult result = new StreamResult(new File(
-					"/Users/philippanders/Documents/MIM/DBV/Projekt/code/lane-detection/xml_results/test.xml"));
+					xmlPath));
 			transformer.transform(source, result);
 		} catch (ParserConfigurationException e) {
 			// TODO Auto-generated catch block
