@@ -4,6 +4,7 @@ import java.awt.Polygon;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.UUID;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -284,7 +285,9 @@ public class Detect_Lanes implements PlugIn {
 			success = processImage(ip, byteImageProcessor, true);
 		}
 		if (!success) {
-			if (verbose) System.out.println("\nTrying without exp().");
+
+			if (verbose)
+				System.out.println("\nTrying without exp().");
 			success = processImage(ip, (ByteProcessor) ip.convertToByte(true), false);
 
 			if (!success) {
@@ -309,9 +312,11 @@ public class Detect_Lanes implements PlugIn {
 		ImagePlus roiImage = new ImagePlus("Grayscale with ROI", byteImageProcessor.crop());
 		roiImage.show();
 
-		if (verbose) System.out.print("Waiting on Canny Edge Detector ...");
+		if (verbose)
+			System.out.print("Waiting on Canny Edge Detector ...");
 		IJ.run("Canny Edge Detector", "gaussian=" + cannyGaussian + " low=" + cannyLow + " high=" + cannyHigh);
-		if (verbose) System.out.println(" has finished.");
+		if (verbose)
+			System.out.println(" has finished.");
 		ImageProcessor roiImageProcessor = (ByteProcessor) roiImage.getProcessor();
 		roiImageProcessor.dilate();
 		roiImageProcessor.dilate();
@@ -331,8 +336,9 @@ public class Detect_Lanes implements PlugIn {
 		int cutter = 20;
 		int loopCount = 0;
 		do {
-			if (verbose) System.out.print("\rTrying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ")
-					+ (expMode ? "in exp mode." : "in normal mode."));
+			if (verbose)
+				System.out.print("\rTrying hard " + ++loopCount + ((loopCount == 1) ? " time " : " times ")
+						+ (expMode ? "in exp mode." : "in normal mode."));
 
 			if (expMode) {
 				roi = new Roi(0, cutter, cropped.getWidth() - 1, cropped.getHeight() - (cutter + 1));
@@ -410,7 +416,6 @@ public class Detect_Lanes implements PlugIn {
 
 		try {
 			docBuilder = docFactory.newDocumentBuilder();
-
 			// root elements
 			Document doc = docBuilder.newDocument();
 			Element video = doc.createElement("video");
@@ -441,6 +446,7 @@ public class Detect_Lanes implements PlugIn {
 						Region region = this.fillFromSeed(xmlGuideProcessor, x, y, xmlGuideProcessor.get(x, y),
 								background);
 						Element object = doc.createElement("object");
+						object.setAttribute("id", UUID.randomUUID().toString());
 						objects.appendChild(object);
 						Element info = doc.createElement("info");
 						object.appendChild(info);
@@ -456,8 +462,8 @@ public class Detect_Lanes implements PlugIn {
 							info.appendChild(booleanAttribute);
 						} else if (xmlGuideProcessor.get(x, y) == ((0 & 0xff) << 16) + ((255 & 0xff) << 8)
 								+ (0 & 0xff)) {
-									booleanAttribute.appendChild(doc.createTextNode("false"));
-									info.appendChild(booleanAttribute);
+							booleanAttribute.appendChild(doc.createTextNode("false"));
+							info.appendChild(booleanAttribute);
 						}
 						Element shape = doc.createElement("shape");
 						shape.setAttribute("type", "points");
