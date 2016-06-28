@@ -176,7 +176,10 @@ public class Detect_Lanes implements PlugIn {
 		}
 	}
 
-	public void extractArguments(String args) {
+	public boolean extractArguments(String args) {
+		if (args == null)
+			return false;
+		
 		String[] splArgs = args.split("[ ][-]");
 		// remove starting dash
 		for (int i = 0; i < splArgs.length; i++) {
@@ -192,11 +195,15 @@ public class Detect_Lanes implements PlugIn {
 				inputFile = param[1].replaceAll("\\s", "\\ ").trim();
 			}
 		}
-
+		
+		return true;
 	}
 
 	public void run(String args) {
-		this.extractArguments(Macro.getOptions());
+		boolean foundArguments = this.extractArguments(Macro.getOptions());
+		if (!foundArguments)
+			return;
+		
 		new Opener().open(inputFile);
 		ImagePlus plus = IJ.getImage();
 		ImageProcessor ip = plus.getProcessor();
