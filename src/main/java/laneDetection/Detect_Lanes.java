@@ -251,6 +251,11 @@ public class Detect_Lanes implements PlugIn {
 			String fileString = inputPath.substring(fileExtensionIndex);
 			outputPath = pathString.concat(fileNameExtension).concat(fileString);
 			xmlPath = pathString.concat(fileNameExtension).concat(".xml");
+		} else {
+			int fileExtensionIndex = outputPath.lastIndexOf(".");
+			String pathString = outputPath.substring(0, fileExtensionIndex);
+			String fileString = outputPath.substring(fileExtensionIndex);
+			xmlPath = pathString.concat(".xml");
 		}
 
 		ImagePlus plus = IJ.getImage();
