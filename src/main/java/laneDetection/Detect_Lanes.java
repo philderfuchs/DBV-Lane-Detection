@@ -35,9 +35,11 @@ public class Detect_Lanes implements PlugIn {
 
 	static final double regionSizeLowerThreshold = 0.0;
 	static final double regionSizeUpperThreshold = 0.1;
+	static final String fileNameExtension = "_Lane";
 
 	private static String inputPath;
 	private static String outputPath;
+	private static String xmlPath;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -210,8 +212,21 @@ public class Detect_Lanes implements PlugIn {
 		if (!foundArguments)
 			return;
 		
-		new Opener().open(inputFile);
-
+		if (inputPath == null) {
+			System.err.println("No input file.");
+			return;
+		}
+			
+		new Opener().open(inputPath);
+		
+		if (outputPath == null) {
+			int fileExtensionIndex = inputPath.lastIndexOf(".");
+			String pathString = inputPath.substring(0, fileExtensionIndex);
+			String fileString = inputPath.substring(fileExtensionIndex);
+			outputPath = pathString.concat(fileNameExtension).concat(fileString);
+			xmlPath = pathString.concat(fileNameExtension).concat(".xml");
+		}
+		
 		ImagePlus plus = IJ.getImage();
 		ImageProcessor ip = plus.getProcessor();
 
@@ -228,13 +243,14 @@ public class Detect_Lanes implements PlugIn {
 			success = processImage(ip, (ByteProcessor) ip.convertToByte(true), false);
 
 			if (!success) {
-				System.out.println("Failed. :(");
+				System.err.println("Failed. :(");
 				return;
 			}
 		}
 		plus.updateAndDraw();
+		
 		new FileSaver(plus).saveAsPng(outputPath);
-
+		
 		System.out.println("Done.");
 	}
 
@@ -404,7 +420,7 @@ public class Detect_Lanes implements PlugIn {
 
 			DOMSource source = new DOMSource(doc);
 			StreamResult result = new StreamResult(new File(
-					"/Users/philippanders/Documents/MIM/DBV/Projekt/code/lane-detection/xml_results/test.xml"));
+					xmlPath));
 			transformer.transform(source, result);
 		} catch (ParserConfigurationException e) {
 			// TODO Auto-generated catch block
