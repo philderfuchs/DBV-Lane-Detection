@@ -1,6 +1,5 @@
 package laneDetection;
 
-import java.awt.Color;
 import java.awt.Polygon;
 import java.io.File;
 import java.util.ArrayList;
@@ -46,6 +45,8 @@ public class Detect_Lanes implements PlugIn {
 
 	private static boolean cancelExpMode = false;
 	private static boolean verbose = false;
+
+	private static double maxIntensityDifference = 10;
 
 	class Pixel implements Comparable<Pixel> {
 		int x;
@@ -189,7 +190,7 @@ public class Detect_Lanes implements PlugIn {
 	public boolean extractArguments(String args) {
 		if (args == null)
 			return false;
-		
+
 		String[] splArgs = args.split("[ ][-]");
 		// remove starting dash
 		for (int i = 0; i < splArgs.length; i++) {
@@ -225,6 +226,9 @@ public class Detect_Lanes implements PlugIn {
 			if (param[0].equals("e")) {
 				cancelExpMode = true;
 			}
+			if (param[0].equals("d")) {
+				maxIntensityDifference = Double.parseDouble(param[1].trim());
+			}
 			if (param[0].equals("v")) {
 				verbose = true;
 			}
@@ -243,14 +247,14 @@ public class Detect_Lanes implements PlugIn {
 		boolean foundArguments = this.extractArguments(Macro.getOptions());
 		if (!foundArguments)
 			return;
-		
+
 		if (inputPath == null) {
 			System.err.println("No input file.");
 			return;
 		}
-			
+
 		new Opener().open(inputPath);
-		
+
 		if (outputPath == null) {
 			int fileExtensionIndex = inputPath.lastIndexOf(".");
 			String pathString = inputPath.substring(0, fileExtensionIndex);
@@ -263,7 +267,7 @@ public class Detect_Lanes implements PlugIn {
 			String fileString = outputPath.substring(fileExtensionIndex);
 			xmlPath = pathString.concat(".xml");
 		}
-		
+
 		ImagePlus plus = IJ.getImage();
 		ImageProcessor ip = plus.getProcessor();
 
@@ -289,9 +293,9 @@ public class Detect_Lanes implements PlugIn {
 			}
 		}
 		plus.updateAndDraw();
-		
+
 		new FileSaver(plus).saveAsPng(outputPath);
-		
+
 		System.out.println("Done.");
 	}
 
@@ -460,8 +464,7 @@ public class Detect_Lanes implements PlugIn {
 			Transformer transformer = transformerFactory.newTransformer();
 
 			DOMSource source = new DOMSource(doc);
-			StreamResult result = new StreamResult(new File(
-					xmlPath));
+			StreamResult result = new StreamResult(new File(xmlPath));
 			transformer.transform(source, result);
 		} catch (ParserConfigurationException e) {
 			// TODO Auto-generated catch block
@@ -660,8 +663,7 @@ public class Detect_Lanes implements PlugIn {
 			}
 			double mean = (double) sum / (double) r.pixels.size();
 			r.mean = mean;
-
-			if (mean >= meanLaneMarkingIntensity - 10) {
+			if (mean >= meanLaneMarkingIntensity - maxIntensityDifference) {
 				filteredRegions.add(r);
 			}
 		}
