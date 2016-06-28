@@ -21,6 +21,7 @@ import org.w3c.dom.Element;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.Macro;
 import ij.gui.NewImage;
 import ij.gui.Roi;
 import ij.plugin.filter.PlugInFilter;
@@ -174,8 +175,24 @@ public class Detect_Lanes implements PlugInFilter {
 	public int setup(String arg, ImagePlus imp) {
 		return DOES_ALL;
 	}
+	
+	public void extractArguments (String args) {
+		String[] splArgs = args.split("[ ][-]");
+		// remove starting dash
+		for (int i = 0; i < splArgs.length; i++) {
+			if (splArgs[i].charAt(0) == '-') {
+				splArgs[i] = splArgs[i].substring(1);
+			}
+		}
+		for (String s : splArgs) {
+			System.out.println(s);
+		}
+		
+	}
 
 	public void run(ImageProcessor ip) {
+		this.extractArguments(Macro.getOptions());
+		
 		ImageProcessor expProcessor = ip.duplicate();
 		expProcessor.exp();
 
