@@ -50,7 +50,7 @@ Die übrigen Regionen stellen alle erkannten Fahrbahnmarkierungen innerhalb des 
 
 Ergebnis dieses Prozesses sind die mittleren Fahrspuren. Alle gefundenen äußeren und mittleren Fahrspuren werden nun als eine gemeinsame Fahrspurmenge betrachtet. Diejenige Fahrspur, die sich von der Mitte des Bildes aus betrachtet als nächstes links befindet, wird als linke Egospur-Markierung gesetzt. Analog wird mit der rechten Egospur-Markierung verfahren.
 
-#### Der Extra-Modus (-e)
+#### Der Exp()-Modus (-e)
 Vor der eigentlichen Pipeline versucht der Algorithmus die Bildverarbeitung mit einem speziellen Vorverarbeitungsschritt: Das Anwenden der "exp()"-Funktion, um farbliche Unebenheiten der Straße zu relativieren. Der Trade-Off dieser Technik ist der Verlust der oberen "Abgrenzung" des Asphaltbereiches. Darum schneidet der Algorithmus vor dem Anwenden der exp()-Funktion 20px vom oberen Rand der Bildes ab. Dieser Prozess wiederholt sich so lange, bis nur noch der Asphalt beim Floodfill ausgeführt wird, jedoch höchstens bis ein viertel der originalen Bildhöhe erreicht wurde. Schlägt der Modus fehl, wird der Prozess mit wird, die Pipeline ganz ohne Anwendung der exp()-Funktion angewendet
 
 ![](Pipeline.png "Ablaufübersicht")
